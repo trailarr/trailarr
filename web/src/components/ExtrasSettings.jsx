@@ -82,7 +82,6 @@ export default function ExtrasSettings() {
   const [ytFlags, setYtFlags] = useState({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [ytError, setYtError] = useState("");
   const [toast, setToast] = useState("");
   const [toastSuccess, setToastSuccess] = useState(true);
   const [tmdbTypes, setTmdbTypes] = useState([]);
@@ -126,8 +125,6 @@ export default function ExtrasSettings() {
   }, [isDark]);
 
   const handleMappingChange = (newMapping) => setMapping(newMapping);
-  const handleYtFlagChange = (key, value) =>
-    setYtFlags((p) => ({ ...p, [key]: value }));
 
   const handleSave = async () => {
     setSaving(true);
@@ -147,20 +144,6 @@ export default function ExtrasSettings() {
     } finally {
       setSaving(false);
     }
-  };
-
-  const handleYtSave = () => {
-    if (
-      typeof ytFlags.maxSleepInterval === "number" &&
-      typeof ytFlags.sleepInterval === "number" &&
-      ytFlags.maxSleepInterval < ytFlags.sleepInterval
-    ) {
-      setYtError("Max Sleep Interval must not be lower than Sleep Interval.");
-      return;
-    }
-    axios.post("/api/settings/ytdlpflags", ytFlags).catch(() => {
-      setYtError("Failed to save yt-dlp flags");
-    });
   };
 
   const isChanged =
@@ -309,96 +292,7 @@ export default function ExtrasSettings() {
           style={{ margin: "2em 0", borderColor: isDark ? "#444" : "#eee" }}
         />
 
-        <SectionHeader>yt-dlp Download Flags</SectionHeader>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleYtSave();
-          }}
-        >
-          {YTDLP_FLAGS.map(({ key, label, type }) => {
-            const dependentOnWriteSubs =
-              key === "writeautosubs" ||
-              key === "embedsubs" ||
-              key === "sublangs";
-            const disabledDueToWriteSubs =
-              dependentOnWriteSubs && ytFlags.writesubs === false;
-            return (
-              <div
-                key={key}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  marginBottom: 16,
-                }}
-              >
-                {type === "boolean" ? (
-                  <>
-                    <input
-                      type="checkbox"
-                      id={key}
-                      checked={!!ytFlags[key]}
-                      onChange={() => handleYtFlagChange(key, !ytFlags[key])}
-                      disabled={disabledDueToWriteSubs}
-                      style={{
-                        marginRight: 12,
-                        accentColor: isDark ? "#2563eb" : "#6d28d9",
-                      }}
-                    />
-                    <label htmlFor={key} style={{ fontSize: 16 }}>
-                      {label}
-                    </label>
-                  </>
-                ) : (
-                  <>
-                    <label
-                      htmlFor={key}
-                      style={{
-                        fontSize: 16,
-                        minWidth: 180,
-                        textAlign: "left",
-                        width: 180,
-                      }}
-                    >
-                      {label}
-                    </label>
-                    <input
-                      type={type === "number" ? "number" : "text"}
-                      id={key}
-                      value={ytFlags[key] ?? ""}
-                      onChange={(e) =>
-                        handleYtFlagChange(
-                          key,
-                          type === "number"
-                            ? Number(e.target.value)
-                            : e.target.value,
-                        )
-                      }
-                      disabled={disabledDueToWriteSubs}
-                      style={{
-                        marginLeft: 12,
-                        width: 120,
-                        minWidth: 80,
-                        maxWidth: 160,
-                        padding: "0.15em 0.5em",
-                        fontSize: 13,
-                        border: "1px solid",
-                        borderColor: isDark ? "#444" : "#ccc",
-                        borderRadius: 4,
-                        background: isDark ? "#23232a" : "#fff",
-                        color: isDark ? "#e5e7eb" : "#222",
-                      }}
-                    />
-                  </>
-                )}
-              </div>
-            );
-          })}
-        </form>
-
-        {ytError && (
-          <div style={{ color: "red", marginBottom: 12 }}>{ytError}</div>
-        )}
+        {/* yt-dlp flags moved to their own settings page */}
       </div>
     </Container>
   );

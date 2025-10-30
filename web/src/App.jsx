@@ -12,8 +12,9 @@ import GeneralSettings from "./components/GeneralSettings";
 import Tasks from "./components/Tasks";
 import HistoryPage from "./components/HistoryPage";
 import Wanted from "./components/Wanted";
-import ProviderSettingsPage from "./components/ProviderSettingsPage";
+const ProviderSettingsPage = lazy(() => import("./components/ProviderSettingsPage"));
 const ExtrasSettings = lazy(() => import("./components/ExtrasSettings"));
+const YtdlpFlagsSettings = lazy(() => import("./components/YtdlpFlagsSettings"));
 import LogsPage from "./components/LogsPage";
 import StatusPage from "./components/StatusPage";
 import {
@@ -316,8 +317,7 @@ function App() {
               color: isDark ? "#e5e7eb" : "#222",
               marginLeft: window.innerWidth > 900 ? 220 : 0,
               marginTop: 64,
-            }}
-          >
+            }}>
             <Routes>
               <Route
                 path="/series"
@@ -433,18 +433,34 @@ function App() {
               />
               <Route
                 path="/settings/radarr"
-                element={<ProviderSettingsPage type="radarr" />}
+                element={
+                  <Suspense fallback={null}>
+                    <ProviderSettingsPage type="radarr" />
+                  </Suspense>
+                }
               />
               <Route
                 path="/settings/sonarr"
-                element={<ProviderSettingsPage type="sonarr" />}
+                element={
+                  <Suspense fallback={null}>
+                    <ProviderSettingsPage type="sonarr" />
+                  </Suspense>
+                }
               />
               <Route path="/settings/general" element={<GeneralSettings />} />
               <Route
                 path="/settings/extras"
                 element={
-                  <Suspense fallback={<div>Loading settings...</div>}>
+                  <Suspense fallback={null}>
                     <ExtrasSettings />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/settings/ytdlp"
+                element={
+                  <Suspense fallback={null}>
+                    <YtdlpFlagsSettings />
                   </Suspense>
                 }
               />

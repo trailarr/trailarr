@@ -960,26 +960,40 @@ func GetSettingsHandler(section string) gin.HandlerFunc {
 			apiKey, _ = sectionData["apiKey"].(string)
 		}
 
-		// Fetch root folders (if any) and merge missing ones into mappings
-		var folders []map[string]interface{}
+		// Respond immediately with the stored settings so the UI can render fast.
+		TrailarrLog(DEBUG, "Settings", "Loaded settings for %s: URL=%s, APIKey=%s, Mappings=%v", section, providerURL, apiKey, pathMappings)
+		respondJSON(c, http.StatusOK, gin.H{"providerURL": providerURL, "apiKey": apiKey, "pathMappings": pathMappings})
+
+		// Spawn a background goroutine to fetch root folders and merge them into
+		// the config file if there are new folders. Doing this asynchronously
+		// avoids blocking the HTTP response when the provider API is slow.
 		if sectionData != nil {
-			folders, _ = FetchRootFolders(providerURL, apiKey)
+			go func(section string, providerURL string, apiKey string, currentPathMappings []map[string]interface{}) {
+				folders, err := FetchRootFolders(providerURL, apiKey)
+				if err != nil {
+					TrailarrLog(DEBUG, "Settings", "Background rootfolder fetch failed for %s: %v", section, err)
+					return
+				}
+				mergedPathMappings, _, updated := mergeFoldersIntoMappings(currentPathMappings, mappings, mappingSet, folders)
+				if updated {
+					// Read current config and attempt to update section pathMappings.
+					cfg, rerr := readConfigFile()
+					if rerr != nil {
+						TrailarrLog(WARN, "Settings", "Background merge: failed to read config: %v", rerr)
+						return
+					}
+					if secData, ok := cfg[section].(map[string]interface{}); ok {
+						secData["pathMappings"] = mergedPathMappings
+						cfg[section] = secData
+						if werr := writeConfigFile(cfg); werr != nil {
+							TrailarrLog(ERROR, "Settings", "Background merge: failed to write config: %v", werr)
+						} else {
+							TrailarrLog(INFO, "Settings", "Background merge: updated config with new root folders for %s", section)
+						}
+					}
+				}
+			}(section, providerURL, apiKey, pathMappings)
 		}
-		mergedPathMappings, mergedMappings, updated := mergeFoldersIntoMappings(pathMappings, mappings, mappingSet, folders)
-
-		if updated && sectionData != nil {
-			sectionData["pathMappings"] = mergedPathMappings
-			config[section] = sectionData
-			out, _ := yamlv3.Marshal(config)
-			if err := os.WriteFile(ConfigPath, out, 0644); err != nil {
-				TrailarrLog(ERROR, "Settings", "Failed to save updated config: %v", err)
-			} else {
-				TrailarrLog(INFO, "Settings", "Updated config with new root folders")
-			}
-		}
-
-		TrailarrLog(DEBUG, "Settings", "Loaded settings for %s: URL=%s, APIKey=%s, Mappings=%v", section, providerURL, apiKey, mergedMappings)
-		respondJSON(c, http.StatusOK, gin.H{"providerURL": providerURL, "apiKey": apiKey, "pathMappings": mergedMappings})
 	}
 }
 

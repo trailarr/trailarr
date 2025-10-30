@@ -263,15 +263,15 @@ export default function SidebarMobile({
                     )}
                   {name === "Settings" &&
                     isOpen("Settings") &&
-                    renderSubmenu(
-                      ["General", "Radarr", "Sonarr", "Extras"],
-                      selectedSettingsSub,
-                      (s) => `/settings/${s.toLowerCase()}`,
-                      {
-                        parentSelected:
-                          selectedSection === name || isOpen(name),
-                      },
-                    )}
+                      renderSubmenu(
+                        ["General", "Radarr", "Sonarr", "Extras", "Ytdlp"],
+                        selectedSettingsSub,
+                        (s) => `/settings/${s.toLowerCase()}`,
+                        {
+                          parentSelected:
+                            selectedSection === name || isOpen(name),
+                        },
+                      )}
                   {name === "System" &&
                     isOpen("System") &&
                     renderSubmenu(

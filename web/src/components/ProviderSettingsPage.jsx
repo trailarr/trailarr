@@ -91,26 +91,10 @@ export default function ProviderSettingsPage({ type }) {
     fetch(`/api/settings/${type}`)
       .then((res) => res.json())
       .then(async (data) => {
-        // Fetch root folders (removed setRootFolders)
-        let folders = [];
-        if (data.providerURL && data.apiKey) {
-          try {
-            const res = await fetch(
-              `/api/rootfolders?providerURL=${encodeURIComponent(data.providerURL)}&apiKey=${encodeURIComponent(data.apiKey)}&type=${type}`,
-            );
-            folders = await res.json();
-          } catch {
-            // ignore
-          }
-        }
-        // Create pathMappings for each root folder if not present
+        // Immediately set settings so UI can render fast.
         let pathMappings = Array.isArray(data.pathMappings)
           ? data.pathMappings
           : [];
-        if (folders.length > 0) {
-          const folderPaths = folders.map((f) => f.path || f);
-          pathMappings = mapFoldersToPathMappings(folderPaths, pathMappings);
-        }
         const normalized = {
           ...data,
           pathMappings,
@@ -118,6 +102,26 @@ export default function ProviderSettingsPage({ type }) {
         setSettings(normalized);
         setOriginalSettings(normalized);
         setLoading(false);
+
+        // Fetch provider root folders in background and merge path mappings when available.
+        if (data.providerURL && data.apiKey) {
+          try {
+            const res = await fetch(
+              `/api/rootfolders?providerURL=${encodeURIComponent(data.providerURL)}&apiKey=${encodeURIComponent(data.apiKey)}&type=${type}`,
+            );
+            if (!res.ok) return;
+            const folders = await res.json();
+            if (folders && folders.length > 0) {
+              const folderPaths = folders.map((f) => f.path || f);
+              const merged = mapFoldersToPathMappings(folderPaths, pathMappings);
+              // Update settings and originalSettings only if mappings changed.
+              setSettings((s) => ({ ...s, pathMappings: merged }));
+              setOriginalSettings((s) => ({ ...s, pathMappings: merged }));
+            }
+          } catch {
+            // ignore background fetch errors
+          }
+        }
       });
   }, [type]);
 
@@ -281,9 +285,7 @@ export default function ProviderSettingsPage({ type }) {
           padding: "2rem",
         }}
       >
-        {loading ? (
-          <div style={{ textAlign: "center", margin: "2rem" }}>Loading...</div>
-        ) : (
+        {!loading && (
           <>
             <div
               style={{
