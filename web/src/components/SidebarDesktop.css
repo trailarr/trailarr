@@ -1,28 +1,4 @@
-.sidebar-menu-link.selected,
-.sidebar-menu-link.selected:focus {
-  background: #e5e7ff !important;
-  color: #6d28d9 !important;
-  box-shadow: 0 0 0 2px #a855f7;
-  display: inline-block;
-  width: auto;
-}
-/* Remove default focus outline and background, add custom focus style for sidebar menu items */
-.sidebar-menu-link:focus,
-.sidebar-menu-btn:focus {
-  outline: none;
-  box-shadow: 0 0 0 2px #a855f7;
-  background: rgba(168, 85, 247, 0.08);
-}
-
-.sidebar-menu-link {
-  outline: none;
-  box-shadow: none;
-  background: none;
-  transition:
-    box-shadow 0.1s,
-    background 0.1s;
-}
-
+.sidebar-menu-link,
 .sidebar-menu-btn {
   outline: none;
   box-shadow: none;
@@ -30,4 +6,35 @@
   transition:
     box-shadow 0.1s,
     background 0.1s;
+  /* Enforce consistent sizing for top-level items so buttons and links match */
+  display: flex;
+  align-items: center;
+  padding: 0.5em 1em;
+  min-height: 60px;
+  box-sizing: border-box;
+}
+/* Make only the parent menu buttons full-width so their background fills the row,
+   without affecting regular route links which should remain inline-sized. */
+.sidebar-menu-btn {
+  display: block;
+  width: 100%;
+}
+.sidebar-menu-link.selected,
+.sidebar-menu-link.selected:focus,
+.sidebar-menu-btn.selected,
+.sidebar-menu-btn.selected:focus {
+  background: #e5e7ff !important;
+  color: #6d28d9 !important;
+}
+/* Parent buttons: ensure selected state fills the row */
+.sidebar-menu-btn.selected,
+.sidebar-menu-btn.selected:focus {
+  display: block;
+  width: 100%;
+}
+/* Remove default focus outline and background, add custom focus style for sidebar menu items */
+.sidebar-menu-link:focus,
+.sidebar-menu-btn:focus {
+  outline: none;
+  background: rgba(168, 85, 247, 0.08);
 }

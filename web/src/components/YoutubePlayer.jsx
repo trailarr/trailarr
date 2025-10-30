@@ -34,16 +34,16 @@ export default function YoutubePlayer({ videoId, onReady }) {
         setError("No videoId provided.");
         return;
       }
-    if (globalThis?.YT?.Player && playerRef.current) {
+      if (globalThis?.YT?.Player && playerRef.current) {
         playerCreated = true;
         try {
           ytPlayer.current = new globalThis.YT.Player(playerRef.current, {
             videoId,
             events: {
-                onReady: (event) => {
-                  event.target.playVideo();
-                  if (onReady) onReady(event);
-                },
+              onReady: (event) => {
+                event.target.playVideo();
+                if (onReady) onReady(event);
+              },
               onError: (e) => {
                 // YouTube error 150: embedding not allowed
                 if (e.data === 150) {
@@ -65,9 +65,9 @@ export default function YoutubePlayer({ videoId, onReady }) {
           setError("Failed to create YouTube Player: " + err.message);
           console.error("Failed to create YouTube Player", err);
         }
-        } else {
-          pollId = setTimeout(tryCreatePlayer, 50);
-        }
+      } else {
+        pollId = setTimeout(tryCreatePlayer, 50);
+      }
     }
     loadYouTubeAPI().then(() => {
       console.log("YouTube IFrame API loaded");

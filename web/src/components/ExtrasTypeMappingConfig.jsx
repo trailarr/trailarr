@@ -199,4 +199,5 @@ TmdbChip.propTypes = {
 };
 
 TmdbChip.defaultProps = {
-  plexType: "",};
+  plexType: "",
+};

@@ -3,7 +3,7 @@ import ExtraCard from "./ExtraCard.jsx";
 import SectionHeader from "./SectionHeader.jsx";
 import Toast from "./Toast";
 import PropTypes from "prop-types";
-import "./ExtrasList.mobile.css";
+import "./ExtrasList.css";
 
 function ExtrasList({
   extrasByType,

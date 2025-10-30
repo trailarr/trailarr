@@ -3,7 +3,6 @@ import PropTypes from "prop-types";
 import { useLocation } from "react-router-dom";
 import SidebarDesktop from "./SidebarDesktop.jsx";
 import SidebarMobile from "./SidebarMobile.jsx";
-import "./Sidebar.mobile.css";
 
 function getSelectedSection(path) {
   if (path === "/" || path.startsWith("/movies")) return "Movies";
@@ -34,6 +33,7 @@ function getSelectedSettingsSub(path) {
 
 function getSelectedSystemSub(path) {
   if (path.startsWith("/system/")) {
+    if (path.startsWith("/system/status")) return "Status";
     if (path.startsWith("/system/tasks")) return "Tasks";
     if (path.startsWith("/system/logs")) return "Logs";
   }
@@ -58,8 +58,8 @@ export default function Sidebar({ mobile, open, onClose }) {
         const hc = Array.isArray(json?.health) ? json.health.length : 0;
         setHealthCount(hc);
       } catch (e) {
-  // Log errors - sidebar counters are non-critical
-  console.error("Failed to load system status for sidebar:", e);
+        // Log errors - sidebar counters are non-critical
+        console.error("Failed to load system status for sidebar:", e);
       }
     }
     load();

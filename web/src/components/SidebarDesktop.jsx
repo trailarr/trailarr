@@ -2,7 +2,7 @@ import React from "react";
 import PropTypes from "prop-types";
 import IconButton from "./IconButton.jsx";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   faCog,
   faFilm,
@@ -13,6 +13,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import "./SidebarDesktop.css";
 import { isDark } from "../utils/isDark";
+import HealthBadge from "./HealthBadge.jsx";
 
 export default function SidebarDesktop({
   selectedSection,
@@ -22,24 +23,36 @@ export default function SidebarDesktop({
   handleToggle,
   healthCount = 0,
 }) {
-  function renderWantedSubmenu() {
+  // Generic submenu renderer used by Wanted, Settings and System
+  function renderSubmenu(items, selectedSub, getRoute, opts = {}) {
+    const { includeHealth = false, parentSelected = false } = opts;
+    // submenu UL does not draw the main purple border anymore; the parent li
+    // is responsible for a single continuous left border. Keep UL border
+    // transparent so selected submenu items can still show accents when needed.
+    const ulBorderLeft = "3px solid transparent";
     return (
       <ul
         style={{
           listStyle: "none",
           padding: 0,
-          margin: "8px 0 0 0",
-          background: isDark ? "#23232a" : "#f3f4f6",
-          borderRadius: 6,
+          margin: 0,
+          background: "transparent",
+          borderRadius: 0,
           color: isDark ? "#e5e7eb" : "#222",
           textAlign: "left",
+          borderLeft: ulBorderLeft,
         }}
       >
-        {["Movies", "Series"].map((submenu) => {
-          const selected = selectedSettingsSub === submenu;
-          const borderLeft = selected
-            ? "3px solid #a855f7"
-            : "3px solid transparent";
+        {items.map((submenu) => {
+          const selected = selectedSub === submenu;
+          let liBorderLeft;
+          if (parentSelected) {
+            liBorderLeft = "3px solid transparent";
+          } else if (selected) {
+            liBorderLeft = "3px solid #a855f7";
+          } else {
+            liBorderLeft = "3px solid transparent";
+          }
           let color;
           if (selected) {
             color = isDark ? "#a855f7" : "#6d28d9";
@@ -52,181 +65,41 @@ export default function SidebarDesktop({
             textDecoration: "none",
             display: "block",
             width: "100%",
+            padding: "0em 1.8em",
             textAlign: "left",
             background: "none",
             border: "none",
             fontWeight,
             cursor: "pointer",
           };
-          return (
-            <li
-              key={submenu}
-              style={{
-                padding: "0.5em 1em",
-                borderLeft,
-                background: "none",
-                color,
-                fontWeight,
-                cursor: "pointer",
-                textAlign: "left",
-              }}
-            >
-              <Link to={`/wanted/${submenu.toLowerCase()}`} style={styleLink}>
-                {submenu}
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-    );
-  }
-  function renderSettingsSubmenu() {
-    return (
-      <ul
-        style={{
-          listStyle: "none",
-          padding: 0,
-          margin: "8px 0 0 0",
-          background: isDark ? "#23232a" : "#f3f4f6",
-          borderRadius: 6,
-          color: isDark ? "#e5e7eb" : "#222",
-          textAlign: "left",
-        }}
-      >
-        {["General", "Radarr", "Sonarr", "Extras"].map((submenu) => {
-          const selected = selectedSettingsSub === submenu;
-          const borderLeft = selected
-            ? "3px solid #a855f7"
-            : "3px solid transparent";
-          let color;
-          if (selected) {
-            color = isDark ? "#a855f7" : "#6d28d9";
-          } else {
-            color = isDark ? "#e5e7eb" : "#333";
-          }
-          const fontWeight = selected ? "bold" : "normal";
-          const styleLink = {
+          const toRoute = getRoute(submenu);
+          const liStyle = {
+            padding: "0.5em 1em",
+            borderLeft: liBorderLeft,
+            background: "none",
             color,
-            textDecoration: "none",
-            display: "block",
-            width: "100%",
-            textAlign: "left",
-            background: "none",
-            border: "none",
             fontWeight,
             cursor: "pointer",
+            textAlign: "left",
+            marginBottom: 0,
           };
-          return (
-            <li
-              key={submenu}
-              style={{
-                padding: "0.5em 1em",
-                borderLeft,
-                background: "none",
-                color,
-                fontWeight,
-                cursor: "pointer",
-                textAlign: "left",
-              }}
-            >
-              <Link to={`/settings/${submenu.toLowerCase()}`} style={styleLink}>
-                {submenu}
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-    );
-  }
-  function renderSystemSubmenu() {
-    return (
-      <ul
-        style={{
-          listStyle: "none",
-          padding: 0,
-          margin: "8px 0 0 0",
-          background: isDark ? "#23232a" : "#f3f4f6",
-          borderRadius: 6,
-          color: isDark ? "#e5e7eb" : "#222",
-          textAlign: "left",
-        }}
-      >
-        {["Status", "Tasks", "Logs"].map((submenu) => {
-          const selected = selectedSystemSub === submenu;
-          const borderLeft = selected
-            ? "3px solid #a855f7"
-            : "3px solid transparent";
-          let color;
-          if (selected) {
-            color = isDark ? "#a855f7" : "#6d28d9";
-          } else {
-            color = isDark ? "#e5e7eb" : "#333";
+          if (includeHealth && submenu === "Status") {
+            Object.assign(liStyle, {
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            });
           }
-          const fontWeight = selected ? "bold" : "normal";
-          const styleLink = {
-            color,
-            textDecoration: "none",
-            display: "block",
-            width: "100%",
-            textAlign: "left",
-            background: "none",
-            border: "none",
-            fontWeight,
-            cursor: "pointer",
-          };
-          const toRoute = (() => {
-            if (submenu === "Status") return "/system/status";
-            if (submenu === "Tasks") return "/system/tasks";
-            return "/system/logs";
-          })();
           return (
-            <li
-              key={submenu}
-              style={{
-                padding: "0.5em 1em",
-                borderLeft,
-                background: "none",
-                color,
-                fontWeight,
-                cursor: "pointer",
-                textAlign: "left",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
+            <li key={submenu} style={liStyle}>
               <Link
                 to={toRoute}
-                style={{ ...styleLink, flex: 1 }}
+                style={includeHealth ? { ...styleLink, flex: 1 } : styleLink}
               >
                 {submenu}
               </Link>
-              {submenu === "Status" && healthCount > 0 && (
-                (() => {
-                  const display = healthCount > 9 ? "9+" : String(healthCount);
-                  return (
-                    <span
-                      style={{
-                        background: "#ef4444",
-                        color: "#fff",
-                        borderRadius: 6,
-                        width: 20,
-                        height: 20,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: "0.75em",
-                        lineHeight: 1,
-                        marginLeft: 8,
-                        textAlign: "center",
-                        boxSizing: "border-box",
-                      }}
-                      aria-label={`${healthCount} health issues`}
-                    >
-                      {display}
-                    </span>
-                  );
-                })()
+              {includeHealth && submenu === "Status" && (
+                <HealthBadge count={healthCount} />
               )}
             </li>
           );
@@ -234,6 +107,17 @@ export default function SidebarDesktop({
       </ul>
     );
   }
+  // Navigation helpers and menu data
+  const navigate = useNavigate();
+  const navTimersRef = React.useRef({});
+  const NAV_DELAY = 150;
+
+  const firstSubmenuRoute = {
+    Wanted: "/wanted/movies",
+    Settings: "/settings/general",
+    System: "/system/status",
+  };
+
   const menuItems = [
     { name: "Movies", icon: faFilm, route: "/" },
     { name: "Series", icon: faCog, route: "/series" },
@@ -243,14 +127,31 @@ export default function SidebarDesktop({
     { name: "Settings", icon: faCog },
     { name: "System", icon: faServer },
   ];
-  const firstSubmenuRoute = {
-    Wanted: "/wanted/movies",
-    Settings: "/settings/general",
-    System: "/system/status",
-  };
+
+  // Handle clicking a top-level menu that toggles a submenu.
+  // If the menu has a default first route, open first then navigate after a
+  // short delay so the submenu is visible. If already open, navigate
+  // immediately. We keep per-menu timers in navTimersRef so subsequent
+  // clicks cancel pending navigations.
   const handleMenuClick = (name) => {
+    // Clear any pending timer for this menu
+    if (navTimersRef.current[name]) {
+      clearTimeout(navTimersRef.current[name]);
+      delete navTimersRef.current[name];
+    }
+
+    // If this menu has a default route, expand first and navigate after a
+    // short delay. If already open, navigate immediately.
     if (firstSubmenuRoute[name]) {
-      globalThis.location.href = firstSubmenuRoute[name];
+      if (isOpen(name)) {
+        navigate(firstSubmenuRoute[name]);
+      } else {
+        handleToggle(name);
+        navTimersRef.current[name] = setTimeout(() => {
+          navigate(firstSubmenuRoute[name]);
+          delete navTimersRef.current[name];
+        }, NAV_DELAY);
+      }
     } else {
       handleToggle(name);
     }
@@ -284,15 +185,20 @@ export default function SidebarDesktop({
               color = isDark ? "#e5e7eb" : "#333";
               fontWeight = "normal";
             }
+            const parentBorderLeft =
+              selectedSection === name || isOpen(name)
+                ? "3px solid #a855f7"
+                : "3px solid transparent";
             const styleCommon = {
               textDecoration: "none",
               background,
               border: "none",
+              // borderLeft moved to the li wrapper so submenu and parent share a single continuous border
               color,
               fontWeight,
               textAlign: "left",
               padding: "0.5em 1em",
-              borderRadius: 6,
+              borderRadius: 0,
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
@@ -304,7 +210,10 @@ export default function SidebarDesktop({
             };
             if (route) {
               return (
-                <li key={name} style={{ marginBottom: 16 }}>
+                <li
+                  key={name}
+                  style={{ marginBottom: 0, borderLeft: parentBorderLeft }}
+                >
                   <Link
                     to={route}
                     style={styleCommon}
@@ -331,10 +240,13 @@ export default function SidebarDesktop({
             }
             // Render menu toggle and submenus
             return (
-              <li key={name} style={{ marginBottom: 16 }}>
+              <li
+                key={name}
+                style={{ marginBottom: 0, borderLeft: parentBorderLeft }}
+              >
                 <button
                   type="button"
-                  style={styleCommon}
+                  style={{ ...styleCommon, width: "100%", borderRadius: 0 }}
                   className="sidebar-menu-btn"
                   onClick={() => handleMenuClick(name)}
                 >
@@ -352,13 +264,55 @@ export default function SidebarDesktop({
                       border: "none",
                     }}
                   />
-                  {name}
+                  <span
+                    style={{
+                      flex: 1,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <span>{name}</span>
+                    {name === "System" &&
+                      healthCount > 0 &&
+                      !isOpen("System") && <HealthBadge count={healthCount} />}
+                  </span>
                 </button>
-                {name === "Wanted" && isOpen("Wanted") && renderWantedSubmenu()}
+                {name === "Wanted" &&
+                  isOpen("Wanted") &&
+                  renderSubmenu(
+                    ["Movies", "Series"],
+                    selectedSettingsSub,
+                    (s) => `/wanted/${s.toLowerCase()}`,
+                    {
+                      parentSelected: selectedSection === name || isOpen(name),
+                    },
+                  )}
                 {name === "Settings" &&
                   isOpen("Settings") &&
-                  renderSettingsSubmenu()}
-                {name === "System" && isOpen("System") && renderSystemSubmenu()}
+                  renderSubmenu(
+                    ["General", "Radarr", "Sonarr", "Extras"],
+                    selectedSettingsSub,
+                    (s) => `/settings/${s.toLowerCase()}`,
+                    {
+                      parentSelected: selectedSection === name || isOpen(name),
+                    },
+                  )}
+                {name === "System" &&
+                  isOpen("System") &&
+                  renderSubmenu(
+                    ["Status", "Tasks", "Logs"],
+                    selectedSystemSub,
+                    (s) => {
+                      if (s === "Status") return "/system/status";
+                      if (s === "Tasks") return "/system/tasks";
+                      return "/system/logs";
+                    },
+                    {
+                      includeHealth: true,
+                      parentSelected: selectedSection === name || isOpen(name),
+                    },
+                  )}
               </li>
             );
           })}

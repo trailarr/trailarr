@@ -258,7 +258,6 @@ function App() {
       className="app-container"
       style={{ width: "100vw", minHeight: "100vh", overflowX: "hidden" }}
     >
-
       <Header
         search={search}
         setSearch={setSearch}
@@ -459,10 +458,7 @@ function App() {
       </div>
 
       {/* Toast Modal */}
-      <Toast
-        message={toastMessage}
-        onClose={() => setToastMessage("")}
-      />
+      <Toast message={toastMessage} onClose={() => setToastMessage("")} />
     </div>
   );
 }

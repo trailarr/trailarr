@@ -12,6 +12,8 @@ import {
   faServer,
 } from "@fortawesome/free-solid-svg-icons";
 import { isDark } from "../utils/isDark";
+import "./SidebarMobile.css";
+import HealthBadge from "./HealthBadge.jsx";
 
 export default function SidebarMobile({
   open,
@@ -23,227 +25,87 @@ export default function SidebarMobile({
   handleToggle,
   healthCount = 0,
 }) {
-  function renderWantedSubmenu() {
+  function renderSubmenu(items, selectedSub, getRoute, opts = {}) {
+    const { includeHealth = false, parentSelected = false } = opts;
+    // Keep the submenu UL border transparent — the parent <li> now owns the
+    // continuous purple border so the UL must not draw its own border to
+    // avoid a double line on mobile.
+    const ulBorderLeft = "3px solid transparent";
+
+    const baseLinkStyle = {
+      textDecoration: "none",
+      display: "block",
+      width: "100%",
+      textAlign: "left",
+      background: "none",
+      border: "none",
+      cursor: "pointer",
+    };
+
+    const renderItem = (submenu) => {
+      const selected = selectedSub === submenu;
+      const isStatusWithHealth = includeHealth && submenu === "Status";
+      const liBorderLeft =
+        selected && !parentSelected
+          ? "3px solid #a855f7"
+          : "3px solid transparent";
+      let color;
+      if (selected) {
+        color = isDark ? "#a855f7" : "#6d28d9";
+      } else {
+        color = isDark ? "#e5e7eb" : "#333";
+      }
+      const fontWeight = selected ? "bold" : "normal";
+      const toRoute = getRoute(submenu);
+
+      const styleLink = {
+        ...baseLinkStyle,
+        color,
+        fontWeight,
+      };
+
+      const liStyle = {
+        padding: "0.5em 1em",
+        borderLeft: liBorderLeft,
+        background: "none",
+        color,
+        fontWeight,
+        cursor: "pointer",
+        textAlign: "left",
+        marginBottom: 0,
+        display: isStatusWithHealth ? "flex" : undefined,
+        alignItems: isStatusWithHealth ? "center" : undefined,
+        justifyContent: isStatusWithHealth ? "space-between" : undefined,
+      };
+
+      return (
+        <li key={submenu} style={liStyle}>
+          <Link
+            to={toRoute}
+            style={isStatusWithHealth ? { ...styleLink, flex: 1 } : styleLink}
+            onClick={onClose}
+          >
+            {submenu}
+          </Link>
+          {isStatusWithHealth && <HealthBadge count={healthCount} />}
+        </li>
+      );
+    };
+
     return (
       <ul
         style={{
           listStyle: "none",
           padding: 0,
-          margin: "8px 0 0 0",
-          background: isDark ? "#23232a" : "#f3f4f6",
-          borderRadius: 6,
+          margin: 0,
+          borderLeft: ulBorderLeft,
+          background: "transparent",
+          borderRadius: 0,
           color: isDark ? "#e5e7eb" : "#222",
           textAlign: "left",
         }}
       >
-        {["Movies", "Series"].map((submenu) => {
-          const selected = selectedSettingsSub === submenu;
-          const borderLeft = selected
-            ? "3px solid #a855f7"
-            : "3px solid transparent";
-          let color;
-          if (selected) {
-            color = isDark ? "#a855f7" : "#6d28d9";
-          } else {
-            color = isDark ? "#e5e7eb" : "#333";
-          }
-          const fontWeight = selected ? "bold" : "normal";
-          const styleLink = {
-            color,
-            textDecoration: "none",
-            display: "block",
-            width: "100%",
-            textAlign: "left",
-            background: "none",
-            border: "none",
-            fontWeight,
-            cursor: "pointer",
-          };
-          return (
-            <li
-              key={submenu}
-              style={{
-                padding: "0.5em 1em",
-                borderLeft,
-                background: "none",
-                color,
-                fontWeight,
-                cursor: "pointer",
-                textAlign: "left",
-              }}
-            >
-              <Link
-                to={`/wanted/${submenu.toLowerCase()}`}
-                style={styleLink}
-                onClick={onClose}
-              >
-                {submenu}
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-    );
-  }
-  function renderSettingsSubmenu() {
-    return (
-      <ul
-        style={{
-          listStyle: "none",
-          padding: 0,
-          margin: "8px 0 0 0",
-          background: isDark ? "#23232a" : "#f3f4f6",
-          borderRadius: 6,
-          color: isDark ? "#e5e7eb" : "#222",
-          textAlign: "left",
-        }}
-      >
-        {["General", "Radarr", "Sonarr", "Extras"].map((submenu) => {
-          const selected = selectedSettingsSub === submenu;
-          const borderLeft = selected
-            ? "3px solid #a855f7"
-            : "3px solid transparent";
-          let color;
-          if (selected) {
-            color = isDark ? "#a855f7" : "#6d28d9";
-          } else {
-            color = isDark ? "#e5e7eb" : "#333";
-          }
-          const fontWeight = selected ? "bold" : "normal";
-          const styleLink = {
-            color,
-            textDecoration: "none",
-            display: "block",
-            width: "100%",
-            textAlign: "left",
-            background: "none",
-            border: "none",
-            fontWeight,
-            cursor: "pointer",
-          };
-          return (
-            <li
-              key={submenu}
-              style={{
-                padding: "0.5em 1em",
-                borderLeft,
-                background: "none",
-                color,
-                fontWeight,
-                cursor: "pointer",
-                textAlign: "left",
-              }}
-            >
-              <Link
-                to={`/settings/${submenu.toLowerCase()}`}
-                style={styleLink}
-                onClick={onClose}
-              >
-                {submenu}
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-    );
-  }
-  function renderSystemSubmenu() {
-    return (
-      <ul
-        style={{
-          listStyle: "none",
-          padding: 0,
-          margin: "8px 0 0 0",
-          background: isDark ? "#23232a" : "#f3f4f6",
-          borderRadius: 6,
-          color: isDark ? "#e5e7eb" : "#222",
-          textAlign: "left",
-        }}
-      >
-        {["Status", "Tasks", "Logs"].map((submenu) => {
-          const selected = selectedSystemSub === submenu;
-          const borderLeft = selected
-            ? "3px solid #a855f7"
-            : "3px solid transparent";
-          let color;
-          if (selected) {
-            color = isDark ? "#a855f7" : "#6d28d9";
-          } else {
-            color = isDark ? "#e5e7eb" : "#333";
-          }
-          const fontWeight = selected ? "bold" : "normal";
-          const styleLink = {
-            color,
-            textDecoration: "none",
-            display: "block",
-            width: "100%",
-            textAlign: "left",
-            background: "none",
-            border: "none",
-            fontWeight,
-            cursor: "pointer",
-          };
-            return (
-              <li
-                key={submenu}
-                style={{
-                  padding: "0.5em 1em",
-                  borderLeft,
-                  background: "none",
-                  color,
-                  fontWeight,
-                  cursor: "pointer",
-                  textAlign: "left",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
-                {(() => {
-                  let route;
-                  if (submenu === "Status") {
-                    route = "/system/status";
-                  } else if (submenu === "Tasks") {
-                    route = "/system/tasks";
-                  } else {
-                    route = "/system/logs";
-                  }
-                  return (
-                    <Link to={route} style={{ ...styleLink, flex: 1 }} onClick={onClose}>
-                      {submenu}
-                    </Link>
-                  );
-                })()}
-                {submenu === "Status" && healthCount > 0 && (
-                  (() => {
-                    const display = healthCount > 9 ? "9+" : String(healthCount);
-                    return (
-                      <span
-                        style={{
-                          background: "#ef4444",
-                          color: "#fff",
-                          borderRadius: 6,
-                          width: 20,
-                          height: 20,
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: "0.75em",
-                          lineHeight: 1,
-                          marginLeft: 8,
-                          textAlign: "center",
-                          boxSizing: "border-box",
-                        }}
-                        aria-label={`${healthCount} health issues`}
-                      >
-                        {display}
-                      </span>
-                    );
-                  })()
-                )}
-              </li>
-            );
-        })}
+        {items.map(renderItem)}
       </ul>
     );
   }
@@ -299,16 +161,23 @@ export default function SidebarMobile({
                 color = isDark ? "#e5e7eb" : "#333";
                 fontWeight = "normal";
               }
+              const parentBorderLeft =
+                selectedSection === name || isOpen(name)
+                  ? "3px solid #a855f7"
+                  : "3px solid transparent";
               const styleCommon = {
                 textDecoration: "none",
                 background,
                 border: "none",
+                // borderLeft moved to the li wrapper so submenu and parent share a single continuous border
                 color,
                 fontWeight,
                 width: "100%",
+                minHeight: 50,
+                boxSizing: "border-box",
                 textAlign: "left",
                 padding: "0.5em 1em",
-                borderRadius: 6,
+                borderRadius: 0,
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
@@ -316,7 +185,10 @@ export default function SidebarMobile({
               };
               if (route) {
                 return (
-                  <li key={name} style={{ marginBottom: 16 }}>
+                  <li
+                    key={name}
+                    style={{ marginBottom: 0, borderLeft: parentBorderLeft }}
+                  >
                     <Link to={route} style={styleCommon} onClick={onClose}>
                       <IconButton
                         icon={
@@ -339,7 +211,10 @@ export default function SidebarMobile({
               }
               // Render menu toggle and submenus
               return (
-                <li key={name} style={{ marginBottom: 16 }}>
+                <li
+                  key={name}
+                  style={{ marginBottom: 0, borderLeft: parentBorderLeft }}
+                >
                   <button
                     type="button"
                     style={styleCommon}
@@ -359,17 +234,60 @@ export default function SidebarMobile({
                         border: "none",
                       }}
                     />
-                    {name}
+                    <span
+                      style={{
+                        flex: 1,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                      }}
+                    >
+                      <span>{name}</span>
+                      {name === "System" &&
+                        healthCount > 0 &&
+                        !isOpen("System") && (
+                          <HealthBadge count={healthCount} />
+                        )}
+                    </span>
                   </button>
                   {name === "Wanted" &&
                     isOpen("Wanted") &&
-                    renderWantedSubmenu()}
+                    renderSubmenu(
+                      ["Movies", "Series"],
+                      selectedSettingsSub,
+                      (s) => `/wanted/${s.toLowerCase()}`,
+                      {
+                        parentSelected:
+                          selectedSection === name || isOpen(name),
+                      },
+                    )}
                   {name === "Settings" &&
                     isOpen("Settings") &&
-                    renderSettingsSubmenu()}
+                    renderSubmenu(
+                      ["General", "Radarr", "Sonarr", "Extras"],
+                      selectedSettingsSub,
+                      (s) => `/settings/${s.toLowerCase()}`,
+                      {
+                        parentSelected:
+                          selectedSection === name || isOpen(name),
+                      },
+                    )}
                   {name === "System" &&
                     isOpen("System") &&
-                    renderSystemSubmenu()}
+                    renderSubmenu(
+                      ["Status", "Tasks", "Logs"],
+                      selectedSystemSub,
+                      (s) => {
+                        if (s === "Status") return "/system/status";
+                        if (s === "Tasks") return "/system/tasks";
+                        return "/system/logs";
+                      },
+                      {
+                        includeHealth: true,
+                        parentSelected:
+                          selectedSection === name || isOpen(name),
+                      },
+                    )}
                 </li>
               );
             })}

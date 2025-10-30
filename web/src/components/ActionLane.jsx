@@ -1,6 +1,6 @@
 import React from "react";
 import PropTypes from "prop-types";
-import "./ActionLane.mobile.css";
+import "./ActionLane.css";
 import { isDark } from "../utils/isDark";
 
 /**
@@ -9,11 +9,7 @@ import { isDark } from "../utils/isDark";
  * @param {string} error - Optional error message
  * @param {React.ReactNode} children - Optional extra content
  */
-export default function ActionLane({
-  buttons = [],
-  error,
-  children,
-}) {
+export default function ActionLane({ buttons = [], error, children }) {
   const laneBg = isDark ? "#23232a" : "var(--save-lane-bg, #f3f4f6)";
   const laneText = isDark ? "#e5e7eb" : "var(--save-lane-text, #222)";
   return (

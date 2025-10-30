@@ -103,7 +103,9 @@ export default function ExtrasSettings() {
       .then(([tmdbRes, plexRes, mapRes, ytRes]) => {
         setTmdbTypes(tmdbRes.data.tmdbExtraTypes);
         if (!Array.isArray(plexRes.data)) {
-          setError("Server response missing mapp array in /api/settings/extratypes");
+          setError(
+            "Server response missing mapp array in /api/settings/extratypes",
+          );
           return;
         }
         const mapp = plexRes.data;
@@ -124,7 +126,8 @@ export default function ExtrasSettings() {
   }, [isDark]);
 
   const handleMappingChange = (newMapping) => setMapping(newMapping);
-  const handleYtFlagChange = (key, value) => setYtFlags((p) => ({ ...p, [key]: value }));
+  const handleYtFlagChange = (key, value) =>
+    setYtFlags((p) => ({ ...p, [key]: value }));
 
   const handleSave = async () => {
     setSaving(true);
@@ -161,33 +164,58 @@ export default function ExtrasSettings() {
   };
 
   const isChanged =
-    EXTRA_TYPES.some(({ key }) => settings[key] !== undefined && settings[key] !== false) ||
-    Object.keys(ytFlags).length > 0;
+    EXTRA_TYPES.some(
+      ({ key }) => settings[key] !== undefined && settings[key] !== false,
+    ) || Object.keys(ytFlags).length > 0;
 
   return (
     <Container>
       <ActionLane
         buttons={[
           {
-            icon: saving ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faSave} />,
+            icon: saving ? (
+              <FontAwesomeIcon icon={faSpinner} spin />
+            ) : (
+              <FontAwesomeIcon icon={faSave} />
+            ),
             label: "Save",
             onClick: handleSave,
             disabled: saving || !isChanged,
             loading: saving,
-            showLabel: globalThis.window === undefined ? true : globalThis.window.innerWidth > 900,
+            showLabel:
+              globalThis.window === undefined
+                ? true
+                : globalThis.window.innerWidth > 900,
           },
         ]}
         error={error}
       />
-      <Toast message={toast} onClose={() => setToast("")} success={toastSuccess} />
+      <Toast
+        message={toast}
+        onClose={() => setToast("")}
+        success={toastSuccess}
+      />
 
-      <div style={{ marginTop: "4.5rem", color: "var(--settings-text, #222)", borderRadius: 12, boxShadow: "0 1px 4px #0001", padding: "2rem" }}>
+      <div
+        style={{
+          marginTop: "4.5rem",
+          color: "var(--settings-text, #222)",
+          borderRadius: 12,
+          boxShadow: "0 1px 4px #0001",
+          padding: "2rem",
+        }}
+      >
         <SectionHeader>Extra Types</SectionHeader>
         <div style={{ marginBottom: "2em" }}>
           <Select
             isMulti
-            options={EXTRA_TYPES.map(({ key, label }) => ({ value: key, label }))}
-            value={EXTRA_TYPES.filter(({ key }) => settings[key]).map(({ key, label }) => ({ value: key, label }))}
+            options={EXTRA_TYPES.map(({ key, label }) => ({
+              value: key,
+              label,
+            }))}
+            value={EXTRA_TYPES.filter(({ key }) => settings[key]).map(
+              ({ key, label }) => ({ value: key, label }),
+            )}
             onChange={(selected) => {
               const newSettings = {};
               for (const { key } of EXTRA_TYPES) newSettings[key] = false;
@@ -209,10 +237,41 @@ export default function ExtrasSettings() {
               }),
               valueContainer: (base) => ({ ...base, padding: "2px 4px" }),
               indicatorsContainer: (base) => ({ ...base, height: 32 }),
-              multiValue: (base) => ({ ...base, background: isDark ? "#333" : "#e5e7eb", color: isDark ? "#fff" : "#222", borderRadius: 6, fontSize: 13, height: 24, margin: "2px 2px", display: "flex", alignItems: "center" }),
-              multiValueLabel: (base) => ({ ...base, color: isDark ? "#fff" : "#222", fontWeight: 500, fontSize: 13, padding: "0 6px" }),
-              multiValueRemove: (base) => ({ ...base, color: isDark ? "#a855f7" : "#6d28d9", fontSize: 13, height: 24, ":hover": { background: isDark ? "#a855f7" : "#6d28d9", color: "#fff" } }),
-              menu: (base) => ({ ...base, background: isDark ? "#23232a" : "#fff", color: isDark ? "#fff" : "#222", borderRadius: 8, fontSize: 13 }),
+              multiValue: (base) => ({
+                ...base,
+                background: isDark ? "#333" : "#e5e7eb",
+                color: isDark ? "#fff" : "#222",
+                borderRadius: 6,
+                fontSize: 13,
+                height: 24,
+                margin: "2px 2px",
+                display: "flex",
+                alignItems: "center",
+              }),
+              multiValueLabel: (base) => ({
+                ...base,
+                color: isDark ? "#fff" : "#222",
+                fontWeight: 500,
+                fontSize: 13,
+                padding: "0 6px",
+              }),
+              multiValueRemove: (base) => ({
+                ...base,
+                color: isDark ? "#a855f7" : "#6d28d9",
+                fontSize: 13,
+                height: 24,
+                ":hover": {
+                  background: isDark ? "#a855f7" : "#6d28d9",
+                  color: "#fff",
+                },
+              }),
+              menu: (base) => ({
+                ...base,
+                background: isDark ? "#23232a" : "#fff",
+                color: isDark ? "#fff" : "#222",
+                borderRadius: 8,
+                fontSize: 13,
+              }),
               option: (base, state) => ({
                 ...base,
                 background: (() => {
@@ -239,17 +298,40 @@ export default function ExtrasSettings() {
           />
         </div>
 
-        <ExtrasTypeMappingConfig mapping={mapping} onMappingChange={handleMappingChange} tmdbTypes={tmdbTypes} plexTypes={plexTypes} />
+        <ExtrasTypeMappingConfig
+          mapping={mapping}
+          onMappingChange={handleMappingChange}
+          tmdbTypes={tmdbTypes}
+          plexTypes={plexTypes}
+        />
 
-        <hr style={{ margin: "2em 0", borderColor: isDark ? "#444" : "#eee" }} />
+        <hr
+          style={{ margin: "2em 0", borderColor: isDark ? "#444" : "#eee" }}
+        />
 
         <SectionHeader>yt-dlp Download Flags</SectionHeader>
-        <form onSubmit={(e) => { e.preventDefault(); handleYtSave(); }}>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleYtSave();
+          }}
+        >
           {YTDLP_FLAGS.map(({ key, label, type }) => {
-            const dependentOnWriteSubs = key === "writeautosubs" || key === "embedsubs" || key === "sublangs";
-            const disabledDueToWriteSubs = dependentOnWriteSubs && ytFlags.writesubs === false;
+            const dependentOnWriteSubs =
+              key === "writeautosubs" ||
+              key === "embedsubs" ||
+              key === "sublangs";
+            const disabledDueToWriteSubs =
+              dependentOnWriteSubs && ytFlags.writesubs === false;
             return (
-              <div key={key} style={{ display: "flex", alignItems: "center", marginBottom: 16 }}>
+              <div
+                key={key}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  marginBottom: 16,
+                }}
+              >
                 {type === "boolean" ? (
                   <>
                     <input
@@ -258,20 +340,54 @@ export default function ExtrasSettings() {
                       checked={!!ytFlags[key]}
                       onChange={() => handleYtFlagChange(key, !ytFlags[key])}
                       disabled={disabledDueToWriteSubs}
-                      style={{ marginRight: 12, accentColor: isDark ? "#2563eb" : "#6d28d9" }}
+                      style={{
+                        marginRight: 12,
+                        accentColor: isDark ? "#2563eb" : "#6d28d9",
+                      }}
                     />
-                    <label htmlFor={key} style={{ fontSize: 16 }}>{label}</label>
+                    <label htmlFor={key} style={{ fontSize: 16 }}>
+                      {label}
+                    </label>
                   </>
                 ) : (
                   <>
-                    <label htmlFor={key} style={{ fontSize: 16, minWidth: 180, textAlign: "left", width: 180 }}>{label}</label>
+                    <label
+                      htmlFor={key}
+                      style={{
+                        fontSize: 16,
+                        minWidth: 180,
+                        textAlign: "left",
+                        width: 180,
+                      }}
+                    >
+                      {label}
+                    </label>
                     <input
                       type={type === "number" ? "number" : "text"}
                       id={key}
                       value={ytFlags[key] ?? ""}
-                      onChange={(e) => handleYtFlagChange(key, type === "number" ? Number(e.target.value) : e.target.value)}
+                      onChange={(e) =>
+                        handleYtFlagChange(
+                          key,
+                          type === "number"
+                            ? Number(e.target.value)
+                            : e.target.value,
+                        )
+                      }
                       disabled={disabledDueToWriteSubs}
-                      style={{ marginLeft: 12, width: 120, minWidth: 80, maxWidth: 160, padding: "0.15em 0.5em", fontSize: 13, border: "1px solid", borderColor: isDark ? "#444" : "#ccc", borderRadius: 4, background: isDark ? "#23232a" : "#fff", color: isDark ? "#e5e7eb" : "#222" }}
+                      style={{
+                        marginLeft: 12,
+                        width: 120,
+                        minWidth: 80,
+                        maxWidth: 160,
+                        padding: "0.15em 0.5em",
+                        fontSize: 13,
+                        border: "1px solid",
+                        borderColor: isDark ? "#444" : "#ccc",
+                        borderRadius: 4,
+                        background: isDark ? "#23232a" : "#fff",
+                        color: isDark ? "#e5e7eb" : "#222",
+                      }}
                     />
                   </>
                 )}
@@ -280,9 +396,10 @@ export default function ExtrasSettings() {
           })}
         </form>
 
-        {ytError && <div style={{ color: "red", marginBottom: 12 }}>{ytError}</div>}
+        {ytError && (
+          <div style={{ color: "red", marginBottom: 12 }}>{ytError}</div>
+        )}
       </div>
     </Container>
   );
-
-  }
+}

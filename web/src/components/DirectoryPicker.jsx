@@ -8,7 +8,13 @@ import { faFolderOpen } from "@fortawesome/free-solid-svg-icons";
 // - onChange: function(newPath)
 // - label: optional label
 // - disabled: optional
-export default function DirectoryPicker({ value, onChange, label, disabled, name }) {
+export default function DirectoryPicker({
+  value,
+  onChange,
+  label,
+  disabled,
+  name,
+}) {
   const [folders, setFolders] = useState([]);
   const [currentPath, setCurrentPath] = useState("");
   const [loading, setLoading] = useState(false);

@@ -15,11 +15,7 @@ function MediaRouteComponent({
     <>
       {search.trim() ? (
         <>
-          <MediaList
-            items={titleMatches}
-            type={type}
-            loading={loading}
-          />
+          <MediaList items={titleMatches} type={type} loading={loading} />
           <div
             style={{
               margin: "1.5em 0 0.5em 1em",
@@ -32,18 +28,10 @@ function MediaRouteComponent({
           >
             Other Results
           </div>
-          <MediaList
-            items={overviewMatches}
-            type={type}
-            loading={loading}
-          />
+          <MediaList items={overviewMatches} type={type} loading={loading} />
         </>
       ) : (
-        <MediaList
-          items={items}
-          type={type}
-          loading={loading}
-        />
+        <MediaList items={items} type={type} loading={loading} />
       )}
       {error && <div style={{ color: "red", marginTop: "1em" }}>{error}</div>}
     </>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import PropTypes from "prop-types";
-import "./BlacklistPage.mobile.css";
+import "./BlacklistPage.css";
 import ExtraCard from "./ExtraCard.jsx";
 import YoutubePlayer from "./YoutubePlayer.jsx";
 import Container from "./Container.jsx";
@@ -41,12 +41,7 @@ function normalizeReason(reason) {
 }
 
 // Subcomponent to render a single group item (reduces nesting in main render)
-function BlacklistGroupItem({
-  item,
-  idx,
-  setYoutubeModal,
-  setBlacklist,
-}) {
+function BlacklistGroupItem({ item, idx, setYoutubeModal, setBlacklist }) {
   const extra = {
     ExtraTitle: item.extraTitle || "",
     ExtraType: item.extraType || "",
@@ -446,7 +441,8 @@ export default function BlacklistPage() {
           tabIndex={0}
           onClick={() => setYoutubeModal({ open: false, videoId: "" })}
           onKeyDown={(e) => {
-            if (e.key === "Escape" || e.key === "Enter") setYoutubeModal({ open: false, videoId: "" });
+            if (e.key === "Escape" || e.key === "Enter")
+              setYoutubeModal({ open: false, videoId: "" });
           }}
           style={{
             position: "fixed",

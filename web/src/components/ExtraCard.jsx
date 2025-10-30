@@ -29,7 +29,6 @@ function areEqual(prevProps, nextProps) {
   return true;
 }
 
-
 // Extracted action buttons to reduce cognitive complexity
 function ExtraCardActions({
   extra,

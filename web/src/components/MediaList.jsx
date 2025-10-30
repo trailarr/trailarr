@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import "./MediaList.mobile.css";
+import "./MediaList.css";
 import { Link } from "react-router-dom";
 import MediaCard from "./MediaCard.jsx";
 import PropTypes from "prop-types";

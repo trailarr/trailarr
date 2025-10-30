@@ -14,7 +14,12 @@ import PropTypes from "prop-types";
 
 // Small presentational component for a single health row.
 // Extracted to avoid defining functions inside the main render (Sonar S6844).
-const HealthRow = React.memo(function HealthRow({ h, idx, moreInfo, executeHealthcheck }) {
+const HealthRow = React.memo(function HealthRow({
+  h,
+  idx,
+  moreInfo,
+  executeHealthcheck,
+}) {
   const src = (h.source || "").toLowerCase();
   let settingsHref = "/settings";
   if (src.includes("radarr")) settingsHref = "/settings/radarr";
@@ -30,22 +35,46 @@ const HealthRow = React.memo(function HealthRow({ h, idx, moreInfo, executeHealt
   );
 
   return (
-    <tr className="status-row" key={h.id || `${h.source || ""}-${h.message || ""}`}>
+    <tr
+      className="status-row"
+      key={h.id || `${h.source || ""}-${h.message || ""}`}
+    >
       <td className="status-message">
         <span className="status-icon">
-          <FontAwesomeIcon icon={faCircleExclamation} className={`status-fa-icon error`} />
+          <FontAwesomeIcon
+            icon={faCircleExclamation}
+            className={`status-fa-icon error`}
+          />
         </span>
         <div className="status-message-text">{h.message}</div>
       </td>
       <td className="status-actions">
-        <a href={moreInfo.home || "#"} title="Wiki" className="action-icon" aria-label="wiki" target="_blank" rel="noopener noreferrer">
+        <a
+          href={moreInfo.home || "#"}
+          title="Wiki"
+          className="action-icon"
+          aria-label="wiki"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
           <FontAwesomeIcon icon={faBookReader} />
         </a>
-        <a href={settingsHref} title="Settings" className="action-icon" aria-label="settings">
+        <a
+          href={settingsHref}
+          title="Settings"
+          className="action-icon"
+          aria-label="settings"
+        >
           <FontAwesomeIcon icon={faCog} />
         </a>
 
-        <button type="button" onClick={handleTrigger} title="Trigger Healthcheck" className="action-icon test-black" aria-label="trigger-health">
+        <button
+          type="button"
+          onClick={handleTrigger}
+          title="Trigger Healthcheck"
+          className="action-icon test-black"
+          aria-label="trigger-health"
+        >
           <FontAwesomeIcon icon={faVial} />
         </button>
       </td>
@@ -65,13 +94,13 @@ export default function StatusPage() {
 
   // fetchStatus updates either the whole page or, when suppressLoading is true,
   // updates data silently (no global loading UI). Used by retryConnection to refresh health only.
-    const fetchStatus = async (suppressLoading = false) => {
-      if (suppressLoading === false) {
-        setLoading(true);
-        setError("");
-      }
-      try {
-        const res = await fetch("/api/system/status");
+  const fetchStatus = async (suppressLoading = false) => {
+    if (suppressLoading === false) {
+      setLoading(true);
+      setError("");
+    }
+    try {
+      const res = await fetch("/api/system/status");
       if (!res.ok) throw new Error("Failed to fetch status");
       const json = await res.json();
       if (suppressLoading) {
@@ -106,15 +135,20 @@ export default function StatusPage() {
   // retryConnection removed — unused helper
 
   const executeHealthcheck = async (h, idx) => {
-  try {
-  retryingRef.current = { ...retryingRef.current, [idx]: { status: "pending", msg: "" } };
+    try {
+      retryingRef.current = {
+        ...retryingRef.current,
+        [idx]: { status: "pending", msg: "" },
+      };
       // If we can determine a provider from the health message (Radarr/Sonarr)
       // call the provider-specific health execute endpoint so only that check runs.
       const src = (h.source || "").toLowerCase();
       let provider = "";
       if (src.includes("radarr")) provider = "radarr";
       else if (src.includes("sonarr")) provider = "sonarr";
-      const endpoint = provider ? `/api/health/${provider}/execute` : "/api/health/execute";
+      const endpoint = provider
+        ? `/api/health/${provider}/execute`
+        : "/api/health/execute";
       const res = await fetch(endpoint, { method: "POST" });
       // Try to parse a JSON result { success: bool, error?: string }
       let json = null;
@@ -130,7 +164,10 @@ export default function StatusPage() {
         throw new Error(errMsg);
       }
       // success
-  retryingRef.current = { ...retryingRef.current, [idx]: { status: "success", msg: "OK" } };
+      retryingRef.current = {
+        ...retryingRef.current,
+        [idx]: { status: "success", msg: "OK" },
+      };
       setToastMessage("Healthcheck successful");
       setToastSuccess(true);
       // remove matching health issue locally so UI clears immediately
@@ -152,7 +189,10 @@ export default function StatusPage() {
       }, 1500);
     } catch (err) {
       const msg = err?.message ? err.message : String(err);
-  retryingRef.current = { ...retryingRef.current, [idx]: { status: "error", msg } };
+      retryingRef.current = {
+        ...retryingRef.current,
+        [idx]: { status: "error", msg },
+      };
       setToastMessage("Healthcheck failed: " + msg);
       setToastSuccess(false);
       setTimeout(() => {
@@ -176,17 +216,14 @@ export default function StatusPage() {
     );
   }
 
-  const {
-    health = [],
-    disks = [],
-    about = {},
-    moreInfo = {},
-  } = data || {};
+  const { health = [], disks = [], about = {}, moreInfo = {} } = data || {};
 
   // Sort disks by location for predictable ordering in the UI
   const sortedDisks = Array.isArray(disks)
     ? [...disks].sort((a, b) =>
-        String(a.location || "").toLowerCase().localeCompare(String(b.location || "").toLowerCase()),
+        String(a.location || "")
+          .toLowerCase()
+          .localeCompare(String(b.location || "").toLowerCase()),
       )
     : [];
 
@@ -198,7 +235,7 @@ export default function StatusPage() {
       <div className="status-page container">
         <h2 className="status-title">Health</h2>
         <div className="status-card health">
-          {(!health || health.length === 0) ? (
+          {!health || health.length === 0 ? (
             <div className="status-row" style={{ padding: "1rem" }}>
               No health issues detected.
             </div>
@@ -224,11 +261,11 @@ export default function StatusPage() {
                 </tbody>
               </table>
               <div className="status-hint">
-                You can find more information about the cause of these health check
-                messages by clicking the wiki link (book icon) at the end of the
-                row, or by checking your <a href="/system/logs">logs</a>. If you have
-                difficulty interpreting these messages then you can reach out to
-                our support, at the links below.
+                You can find more information about the cause of these health
+                check messages by clicking the wiki link (book icon) at the end
+                of the row, or by checking your <a href="/system/logs">logs</a>.
+                If you have difficulty interpreting these messages then you can
+                reach out to our support, at the links below.
               </div>
             </>
           )}
@@ -245,9 +282,9 @@ export default function StatusPage() {
                 <th></th>
               </tr>
             </thead>
-                <tbody>
-                  {sortedDisks.map((d, i) => (
-                    <tr key={d.location || `disk-${i}`}>
+            <tbody>
+              {sortedDisks.map((d, i) => (
+                <tr key={d.location || `disk-${i}`}>
                   <td>{d.location}</td>
                   <td>{d.freeHuman || d.freeStr || d.free || "N/A"}</td>
                   <td>{d.totalHuman || d.totalStr || d.total || "N/A"}</td>
