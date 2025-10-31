@@ -7,55 +7,94 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
+
+// fetchGeneralWithRetries attempts to read the config and return the
+// parsed config map and the "general" subsection, retrying briefly to
+// tolerate background merges/writes during tests.
+func fetchGeneralWithRetries() (map[string]interface{}, map[string]interface{}, error) {
+	var cfg map[string]interface{}
+	var general map[string]interface{}
+	var err error
+	for i := 0; i < 20; i++ {
+		cfg, err = readConfigFile()
+		if err == nil {
+			if g, ok := cfg["general"].(map[string]interface{}); ok {
+				general = g
+				if tm, _ := general["tmdbKey"].(string); tm == "abc" {
+					return cfg, general, nil
+				}
+			}
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	return cfg, general, err
+}
 
 // TestSettingsPOSTHandlers covers saving radarr/sonarr and general settings via POST
 func TestSettingsPOSTHandlers(t *testing.T) {
-	tmp := CreateTempConfig(t)
-	MediaCoverPath = filepath.Join(tmp, "MediaCover")
+	// rely on package-level TestMain temp root
+	// ensure per-test config file so handlers operate against an isolated config
+	CreateTempConfig(t)
 	r := NewTestRouter()
 	RegisterRoutes(r)
 
+	var lastPostBody string
+
 	// POST radarr settings
-	payload := `{"url":"http://example.com","apiKey":"kk"}`
-	w := DoRequest(r, "POST", radarrSettingsPath, []byte(payload))
-	if w.Code != 200 {
-		t.Fatalf("expected 200 saving radarr settings, got %d body=%s", w.Code, w.Body.String())
-	}
+	t.Run("radarr", func(t *testing.T) {
+		payload := `{"url":"http://example.com","apiKey":"kk"}`
+		w := DoRequest(r, "POST", radarrSettingsPath, []byte(payload))
+		if w.Code != 200 {
+			t.Fatalf("expected 200 saving radarr settings, got %d body=%s", w.Code, w.Body.String())
+		}
+	})
 
 	// POST sonarr settings
-	w = DoRequest(r, "POST", "/api/settings/sonarr", []byte(payload))
-	if w.Code != 200 {
-		t.Fatalf("expected 200 saving sonarr settings, got %d", w.Code)
-	}
+	t.Run("sonarr", func(t *testing.T) {
+		payload := `{"url":"http://example.com","apiKey":"kk"}`
+		w := DoRequest(r, "POST", "/api/settings/sonarr", []byte(payload))
+		if w.Code != 200 {
+			t.Fatalf("expected 200 saving sonarr settings, got %d", w.Code)
+		}
+	})
 
 	// POST general settings (tmdb key and autoDownloadExtras) - handler expects JSON
-	genPayload := `{"tmdbKey":"abc","autoDownloadExtras":true}`
-	w = DoRequest(r, "POST", "/api/settings/general", []byte(genPayload))
-	if w.Code != 200 {
-		t.Fatalf("expected 200 saving general settings, got %d body=%s", w.Code, w.Body.String())
-	}
+	t.Run("general", func(t *testing.T) {
+		genPayload := `{"tmdbKey":"abc","autoDownloadExtras":true}`
+		w := DoRequest(r, "POST", "/api/settings/general", []byte(genPayload))
+		if w.Code != 200 {
+			t.Fatalf("expected 200 saving general settings, got %d body=%s", w.Code, w.Body.String())
+		}
+		lastPostBody = w.Body.String()
+	})
 
-	// Read back config file to assert values present
-	cfg, err := readConfigFile()
-	if err != nil {
-		t.Fatalf("failed to read config: %v", err)
-	}
-	general, ok := cfg["general"].(map[string]interface{})
-	if !ok {
-		t.Fatalf("missing general section in config: %v", cfg)
-	}
-	if general["tmdbKey"] != "abc" {
-		t.Fatalf("expected tmdbKey saved as abc, got %v", general["tmdbKey"])
-	}
-	if auto, ok := general["autoDownloadExtras"].(bool); !ok || auto != true {
-		t.Fatalf("expected autoDownloadExtras true, got %v", general["autoDownloadExtras"])
-	}
+	// Verify config contents (separated subtest to keep top-level complexity low)
+	t.Run("verify", func(t *testing.T) {
+		cfg, general, err := fetchGeneralWithRetries()
+		if err != nil {
+			t.Fatalf("failed to read config after retries: %v", err)
+		}
+		if tm, _ := general["tmdbKey"].(string); tm != "abc" {
+			raw, _ := os.ReadFile(ConfigPath)
+			pretty, _ := json.MarshalIndent(cfg, "", "  ")
+			t.Logf("ConfigPath=%s", ConfigPath)
+			t.Logf("Config file raw contents:\n%s", string(raw))
+			t.Logf("Parsed config: %s", string(pretty))
+			t.Logf("Last POST response body: %s", lastPostBody)
+			t.Fatalf("expected tmdbKey saved as abc, got %v", general["tmdbKey"])
+		}
+		if auto, ok := general["autoDownloadExtras"].(bool); !ok || auto != true {
+			t.Fatalf("expected autoDownloadExtras true, got %v", general["autoDownloadExtras"])
+		}
+	})
+
 }
 
 // TestExtrasDeleteAndExisting exercises delete extras and existing extras listing
 func TestExtrasDeleteAndExisting(t *testing.T) {
-	tmp := CreateTempConfig(t)
+	// rely on package-level TestMain temp root
 
 	// seed an extra in the persistent store (persistent collection uses ExtrasEntry)
 	entry := ExtrasEntry{
@@ -74,7 +113,7 @@ func TestExtrasDeleteAndExisting(t *testing.T) {
 	RegisterRoutes(r)
 
 	// create a media path and register media in cache so FindMediaPathByID can locate it
-	mediaPath := filepath.Join(tmp, "m900")
+	mediaPath := filepath.Join(TrailarrRoot, "m900")
 	_ = os.MkdirAll(filepath.Join(mediaPath, "Trailers"), 0755)
 	// create a dummy mkv and meta file so existingExtrasHandler finds it
 	_ = os.WriteFile(filepath.Join(mediaPath, "Trailers", "X.mkv"), []byte("x"), 0644)

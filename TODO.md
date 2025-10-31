@@ -29,3 +29,4 @@ Add new tasks below as needed:
 - [x] fix queue history
 - [x] rejecte extra on over must show reason
 - [x] remove youtube doppler effect
+- [ ] add support to force refresh metadata on plex series

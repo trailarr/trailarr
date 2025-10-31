@@ -6,7 +6,6 @@ import (
 )
 
 func TestExtraTypesSaveAndGet(t *testing.T) {
-	CreateTempConfig(t)
 	r := NewTestRouter()
 	RegisterRoutes(r)
 
@@ -49,7 +48,6 @@ func TestExtraTypesSaveAndGet(t *testing.T) {
 }
 
 func TestCanonicalizeSaveAndGet(t *testing.T) {
-	CreateTempConfig(t)
 	r := NewTestRouter()
 	RegisterRoutes(r)
 

@@ -906,10 +906,17 @@ func sanitizeFileName(name string) string {
 
 // Helper: create temp dir and return tempDir and tempFile path
 func createTempPaths(safeTitle, ext string) (string, string, error) {
-	tempDir, err := os.MkdirTemp("", "yt-dlp-tmp-*")
+	// Create temp dirs under the package-level TrailarrRoot so we only create
+	// a single top-level test temp directory during test runs instead of
+	// multiple top-level /tmp entries.
+	// Ensure TrailarrRoot exists (TestMain should have set it for tests).
+	_ = os.MkdirAll(TrailarrRoot, 0755)
+	tempDir, err := os.MkdirTemp(TrailarrRoot, "yt-dlp-tmp-*")
 	if err != nil {
 		return "", "", err
 	}
+	// Register temp dir so TestMain can clean it up at the end of the test run
+	RegisterTempDir(tempDir)
 	tempFile := filepath.Join(tempDir, fmt.Sprintf("%s.%s", safeTitle, ext))
 	return tempDir, tempFile, nil
 }
@@ -1064,9 +1071,20 @@ func moveDownloadedFile(info *downloadInfo) error {
 		return fmt.Errorf("yt-dlp did not produce expected output file: %s", info.TempFile)
 	}
 
+	// If OutDir is relative, ensure it is anchored under the test/runtime TrailarrRoot so
+	// tests running in the repository root don't write files into the project tree.
+	if !filepath.IsAbs(info.OutDir) {
+		info.OutDir = filepath.Join(TrailarrRoot, info.OutDir)
+	}
+
 	if err := os.MkdirAll(info.OutDir, 0755); err != nil {
 		TrailarrLog(ERROR, "YouTube", "Failed to create output dir '%s': %v", info.OutDir, err)
 		return fmt.Errorf("failed to create output dir '%s': %w", info.OutDir, err)
+	}
+
+	// Ensure OutFile is absolute and located under TrailarrRoot when tests run in repo root.
+	if !filepath.IsAbs(info.OutFile) {
+		info.OutFile = filepath.Join(TrailarrRoot, info.OutFile)
 	}
 
 	if moveErr := os.Rename(info.TempFile, info.OutFile); moveErr != nil {

@@ -606,28 +606,37 @@ func StopExtrasDownloadTask() {
 // Shared logic for type-filtered extras download
 func downloadMissingExtrasWithTypeFilter(ctx context.Context, cfg ExtraTypesConfig, mediaType MediaType, cacheFile string) {
 
-	items, err := loadCache(cacheFile)
-	if err != nil {
-		return
+	// Prefer using the lightweight wanted index to avoid scanning the full cache.
+	useWantedIndex := false
+	items, err := LoadWantedIndex(cacheFile)
+	if err == nil && len(items) > 0 {
+		TrailarrLog(INFO, "Tasks", "downloadMissingExtrasWithTypeFilter: using wanted index with %d items for cache=%s mediaType=%v", len(items), cacheFile, mediaType)
+		useWantedIndex = true
+	} else {
+		// Fallback to the full cache when wanted index not available
+		items, err = loadCache(cacheFile)
+		if err != nil {
+			TrailarrLog(WARN, "Tasks", "downloadMissingExtrasWithTypeFilter: failed to load cache %s: %v", cacheFile, err)
+			return
+		}
+		TrailarrLog(DEBUG, "Tasks", "downloadMissingExtrasWithTypeFilter: loaded %d items from cache=%s for mediaType=%v", len(items), cacheFile, mediaType)
 	}
 
 	enabledTypes := GetEnabledCanonicalExtraTypes(cfg)
-	// Filter items using the same wanted logic as GetMissingExtrasHandler
+	TrailarrLog(DEBUG, "Tasks", "downloadMissingExtrasWithTypeFilter: enabledTypes=%v for mediaType=%v cache=%s useWantedIndex=%v", enabledTypes, mediaType, cacheFile, useWantedIndex)
+
+	// Filter items: if we used the wanted index the items are already wanted-light entries
 	wantedItems := make([]map[string]interface{}, 0, len(items))
 	for _, item := range items {
-		mediaId, ok := parseMediaID(item["id"])
-		if !ok {
-			continue
-		}
-		// Only consider items explicitly marked wanted==true for the extras task.
-		if !isMediaWanted(item) {
-			continue
-		}
-		if !HasAnyEnabledExtras(mediaType, mediaId, enabledTypes) {
+		if include, mediaId := shouldIncludeWantedItem(item, useWantedIndex, mediaType, enabledTypes, cacheFile); include {
 			wantedItems = append(wantedItems, item)
+		} else {
+			// extra debug already logged by helper when skipping
+			_ = mediaId
 		}
 	}
 
+	TrailarrLog(INFO, "Tasks", "downloadMissingExtrasWithTypeFilter: %d wanted items after filtering for cache=%s mediaType=%v", len(wantedItems), cacheFile, mediaType)
 	for _, item := range wantedItems {
 		if ctx != nil && ctx.Err() != nil {
 			TrailarrLog(INFO, "Tasks", "Extras download cancelled before processing item.")
@@ -637,16 +646,44 @@ func downloadMissingExtrasWithTypeFilter(ctx context.Context, cfg ExtraTypesConf
 	}
 }
 
+// Helper: determine whether an item should be included in wantedItems
+func shouldIncludeWantedItem(item map[string]interface{}, useWantedIndex bool, mediaType MediaType, enabledTypes []string, cacheFile string) (bool, int) {
+	idRaw := item["id"]
+	titleRaw := item["title"]
+	TrailarrLog(DEBUG, "Tasks", "downloadMissingExtrasWithTypeFilter: inspecting item id=%v title=%v cache=%s", idRaw, titleRaw, cacheFile)
+	mediaId, ok := parseMediaID(item["id"])
+	if !ok {
+		TrailarrLog(DEBUG, "Tasks", "downloadMissingExtrasWithTypeFilter: failed to parse media id for raw=%v, skipping", idRaw)
+		return false, 0
+	}
+	if !useWantedIndex {
+		if !isMediaWanted(item) {
+			TrailarrLog(DEBUG, "Tasks", "downloadMissingExtrasWithTypeFilter: mediaId=%d not wanted, skipping", mediaId)
+			return false, mediaId
+		}
+	}
+	hasAny := HasAnyEnabledExtras(mediaType, mediaId, enabledTypes)
+	if hasAny {
+		TrailarrLog(DEBUG, "Tasks", "downloadMissingExtrasWithTypeFilter: mediaId=%d already has enabled extras, skipping", mediaId)
+		return false, mediaId
+	}
+	TrailarrLog(DEBUG, "Tasks", "downloadMissingExtrasWithTypeFilter: mediaId=%d wanted and missing extras, adding to wantedItems", mediaId)
+	return true, mediaId
+}
+
 // processWantedItem encapsulates per-item processing previously inline in the large function.
 func processWantedItem(ctx context.Context, cfg ExtraTypesConfig, mediaType MediaType, cacheFile string, item map[string]interface{}, enabledTypes interface{}) {
 	mediaId, _ := parseMediaID(item["id"])
 	title, _ := item["title"].(string)
+
+	TrailarrLog(DEBUG, "Tasks", "processWantedItem: processing mediaType=%v mediaId=%d title=%q cache=%s enabledTypes=%v", mediaType, mediaId, title, cacheFile, enabledTypes)
 
 	extras, usedTMDB, err := fetchExtrasOrTMDB(mediaType, mediaId, title, enabledTypes)
 	if err != nil {
 		TrailarrLog(WARN, "Tasks", "SearchExtras/TMDB failed for mediaId=%v, title=%q: %v", mediaId, title, err)
 		return
 	}
+	TrailarrLog(DEBUG, "Tasks", "processWantedItem: fetched extras count=%d usedTMDB=%v for mediaId=%d title=%q", len(extras), usedTMDB, mediaId, title)
 	if len(extras) == 0 {
 		// Nothing to do
 		return
@@ -654,7 +691,7 @@ func processWantedItem(ctx context.Context, cfg ExtraTypesConfig, mediaType Medi
 
 	mediaPath, err := FindMediaPathByID(cacheFile, mediaId)
 	if err != nil || mediaPath == "" {
-		TrailarrLog(WARN, "Tasks", "FindMediaPathByID failed for mediaId=%v, title=%q: %v", mediaId, title, err)
+		TrailarrLog(WARN, "Tasks", "FindMediaPathByID failed for mediaId=%v, title=%q cache=%s: %v", mediaId, title, cacheFile, err)
 		return
 	}
 
@@ -674,6 +711,7 @@ func processWantedItem(ctx context.Context, cfg ExtraTypesConfig, mediaType Medi
 		MarkRejectedExtrasInMemory(extras, rejectedYoutubeIds)
 		toDownload = extras
 	}
+	TrailarrLog(DEBUG, "Tasks", "processWantedItem: mediaId=%d toDownload count=%d usedTMDB=%v mediaPath=%s", mediaId, len(toDownload), usedTMDB, mediaPath)
 
 	// For each extra, download sequentially using a helper to reduce nesting.
 	for _, extra := range toDownload {
@@ -709,18 +747,24 @@ func fetchExtrasOrTMDB(mediaType MediaType, mediaId int, title string, enabledTy
 // processExtraDownload handles the per-extra checks and enqueues downloads when appropriate.
 func processExtraDownload(cfg ExtraTypesConfig, mediaType MediaType, mediaId int, extra Extra, usedTMDB bool) {
 	typ := canonicalizeExtraType(extra.ExtraType)
+	TrailarrLog(DEBUG, "Tasks", "processExtraDownload: mediaId=%d extraType=%s status=%s youtubeId=%s usedTMDB=%v", mediaId, extra.ExtraType, extra.Status, extra.YoutubeId, usedTMDB)
 	if !isExtraTypeEnabled(cfg, typ) {
+		TrailarrLog(DEBUG, "Tasks", "processExtraDownload: extra type %s disabled by config, skipping mediaId=%d", typ, mediaId)
 		return
 	}
 	// Only check rejection for local extras, not TMDB-fetched
 	if !usedTMDB && extra.Status == "rejected" {
+		TrailarrLog(DEBUG, "Tasks", "processExtraDownload: extra rejected locally, skipping mediaId=%d youtubeId=%s", mediaId, extra.YoutubeId)
 		return
 	}
 	// For TMDB-fetched, always treat as missing if not present locally
 	if (usedTMDB && extra.YoutubeId != "") || (!usedTMDB && extra.Status == "missing" && extra.YoutubeId != "") {
+		TrailarrLog(INFO, "Tasks", "processExtraDownload: queuing extra mediaId=%d type=%s title=%q youtubeId=%s usedTMDB=%v", mediaId, extra.ExtraType, extra.ExtraTitle, extra.YoutubeId, usedTMDB)
 		if err := handleTypeFilteredExtraDownload(mediaType, mediaId, extra); err != nil {
 			TrailarrLog(WARN, "Tasks", "[SEQ] Download failed: %v", err)
 		}
+	} else {
+		TrailarrLog(DEBUG, "Tasks", "processExtraDownload: extra does not meet download criteria for mediaId=%d youtubeId=%s status=%s usedTMDB=%v", mediaId, extra.YoutubeId, extra.Status, usedTMDB)
 	}
 }
 
@@ -750,11 +794,11 @@ func handleTypeFilteredExtraDownload(mediaType MediaType, mediaId int, extra Ext
 // waitForDownloadQueueDrain polls the persistent download queue until there are
 // no items with status 'queued'. It logs and sleeps between attempts.
 func waitForDownloadQueueDrain(mediaId int, youtubeId string) {
+	TrailarrLog(INFO, "Tasks", "Waiting for download queue to drain before enqueuing extra: mediaId=%d youtubeId=%s", mediaId, youtubeId)
 	for {
 		if !isDownloadQueueQueuedPresent() {
 			return
 		}
-		TrailarrLog(INFO, "Tasks", "Waiting for download queue to drain before enqueuing extra: mediaId=%d youtubeId=%s", mediaId, youtubeId)
 		time.Sleep(DownloadQueueWatcherInterval)
 	}
 }

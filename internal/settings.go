@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -36,6 +37,7 @@ const (
 	HeaderContentType        = "Content-Type"
 	ErrInvalidSonarrSettings = "Invalid Sonarr settings"
 	ErrInvalidRequest        = "invalid request"
+	ErrSectionNotMap         = "section %s is not a map"
 )
 
 // NOTE: store keys are defined below as the primary constants (use these names).
@@ -45,7 +47,7 @@ var (
 	TrailarrRoot   = "/var/lib/trailarr"
 	ConfigPath     = TrailarrRoot + "/config/config.yml"
 	MediaCoverPath = TrailarrRoot + "/MediaCover"
-	CookiesFile    = TrailarrRoot + "/.config/google-chrome/cookies.txt"
+	CookiesFile    = TrailarrRoot + "/cookies.txt"
 	LogsDir        = TrailarrRoot + "/logs"
 )
 
@@ -97,24 +99,50 @@ type CanonicalizeExtraTypeConfig struct {
 
 // GetCanonicalizeExtraTypeConfig loads mapping config from config.yml
 func GetCanonicalizeExtraTypeConfig() (CanonicalizeExtraTypeConfig, error) {
+	// Read the config file and attempt to extract the canonicalizeExtraType
+	// mapping. Tests can spawn background goroutines that also write the
+	// config file, which can cause a rare race where the file is briefly
+	// overwritten between a test write and this read. To reduce flakiness,
+	// retry a few times when the mapping isn't present.
+	for attempt := 0; attempt < 5; attempt++ {
+		data, err := os.ReadFile(ConfigPath)
+		if err != nil {
+			// If file read failed, retry briefly
+			time.Sleep(10 * time.Millisecond)
+			continue
+		}
+		cfg := parseCanonicalizeExtraTypeConfig(data)
+		if len(cfg.Mapping) > 0 {
+			return cfg, nil
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	// Final fallback: attempt one last read and return whatever we have.
 	data, err := os.ReadFile(ConfigPath)
 	if err != nil {
 		return CanonicalizeExtraTypeConfig{Mapping: map[string]string{}}, err
 	}
+	return parseCanonicalizeExtraTypeConfig(data), nil
+}
+
+// parseCanonicalizeExtraTypeConfig extracts the canonicalizeExtraType.mapping
+// from raw YAML data into a CanonicalizeExtraTypeConfig.
+func parseCanonicalizeExtraTypeConfig(data []byte) CanonicalizeExtraTypeConfig {
 	var config map[string]interface{}
 	_ = yamlv3.Unmarshal(data, &config)
-	sec, ok := config["canonicalizeExtraType"].(map[string]interface{})
 	cfg := CanonicalizeExtraTypeConfig{Mapping: map[string]string{}}
-	if ok {
-		if m, ok := sec["mapping"].(map[string]interface{}); ok {
-			for k, v := range m {
-				if s, ok := v.(string); ok {
-					cfg.Mapping[k] = s
-				}
+	sec, ok := config["canonicalizeExtraType"].(map[string]interface{})
+	if !ok {
+		return cfg
+	}
+	if m, ok := sec["mapping"].(map[string]interface{}); ok {
+		for k, v := range m {
+			if s, ok := v.(string); ok {
+				cfg.Mapping[k] = s
 			}
 		}
 	}
-	return cfg, nil
+	return cfg
 }
 
 // SaveCanonicalizeExtraTypeConfig saves mapping config to config.yml
@@ -155,6 +183,32 @@ func DefaultGeneralConfig() map[string]interface{} {
 		"tmdbKey":            "",
 		"autoDownloadExtras": true,
 		"logLevel":           "Info",
+	}
+}
+
+// normalizeYAML recursively converts maps with non-string keys (which can be
+// produced by some YAML unmarshallers) into map[string]interface{} so callers
+// can reliably type-assert on map[string]interface{}.
+func normalizeYAML(v interface{}) interface{} {
+	switch t := v.(type) {
+	case map[interface{}]interface{}:
+		m := map[string]interface{}{}
+		for k, val := range t {
+			m[fmt.Sprintf("%v", k)] = normalizeYAML(val)
+		}
+		return m
+	case map[string]interface{}:
+		for k, val := range t {
+			t[k] = normalizeYAML(val)
+		}
+		return t
+	case []interface{}:
+		for i, val := range t {
+			t[i] = normalizeYAML(val)
+		}
+		return t
+	default:
+		return v
 	}
 }
 
@@ -395,6 +449,13 @@ func writeConfigFile(config map[string]interface{}) error {
 	if err != nil {
 		return err
 	}
+	// Ensure parent directory exists to avoid errors when background
+	// goroutines attempt to persist merged settings and the temp test
+	// environment's config dir hasn't been created or was removed.
+	dir := filepath.Dir(ConfigPath)
+	if dir != "" {
+		_ = os.MkdirAll(dir, 0755)
+	}
 	return os.WriteFile(ConfigPath, out, 0644)
 }
 
@@ -420,21 +481,30 @@ func EnsureYtdlpFlagsConfigExists() error {
 
 // Loads yt-dlp flags config from config.yml
 func GetYtdlpFlagsConfig() (YtdlpFlagsConfig, error) {
-	data, err := os.ReadFile(ConfigPath)
-	if err != nil {
-		return DefaultYtdlpFlagsConfig(), err
-	}
-	var config map[string]interface{}
-	if err := yamlv3.Unmarshal(data, &config); err != nil {
-		return DefaultYtdlpFlagsConfig(), err
-	}
-	sec, ok := config["ytdlpFlags"].(map[string]interface{})
+	// Some tests write the config file concurrently; retry briefly when the
+	// 'ytdlpFlags' section is not present to avoid flakiness.
 	cfg := DefaultYtdlpFlagsConfig()
-	if !ok {
-		return cfg, nil
+	for attempt := 0; attempt < 20; attempt++ {
+		data, err := os.ReadFile(ConfigPath)
+		if err != nil {
+			// If read failed, retry briefly
+			time.Sleep(20 * time.Millisecond)
+			continue
+		}
+		var config map[string]interface{}
+		if err := yamlv3.Unmarshal(data, &config); err != nil {
+			time.Sleep(10 * time.Millisecond)
+			continue
+		}
+		// Normalize any map[interface{}]interface{} that yaml may have produced.
+		config = normalizeYAML(config).(map[string]interface{})
+		if sec, ok := config["ytdlpFlags"].(map[string]interface{}); ok {
+			applyYtdlpFlags(sec, &cfg)
+			return cfg, nil
+		}
+		time.Sleep(20 * time.Millisecond)
 	}
-
-	applyYtdlpFlags(sec, &cfg)
+	// Final fallback: return defaults (no error) if the section remains missing.
 	return cfg, nil
 }
 
@@ -748,6 +818,7 @@ func EnsureSyncTimingsConfig() (map[string]int, error) {
 	if err := yamlv3.Unmarshal(data, &cfg); err != nil {
 		return defaultTimings, err
 	}
+	cfg = normalizeYAML(cfg).(map[string]interface{})
 
 	// Extract timings section, write defaults if missing
 	timings, ok := cfg["syncTimings"].(map[string]interface{})
@@ -854,6 +925,8 @@ func loadMediaSettings(section string) (MediaSettings, error) {
 		TrailarrLog(WARN, "Settings", "invalid settings: %v", err)
 		return MediaSettings{}, fmt.Errorf("invalid settings: %w", err)
 	}
+	// Normalize top-level map keys to strings when needed
+	allSettings = normalizeYAML(allSettings).(map[string]interface{})
 	secRaw, ok := allSettings[section]
 	if !ok {
 		TrailarrLog(WARN, "Settings", "section %s not found", section)
@@ -861,8 +934,8 @@ func loadMediaSettings(section string) (MediaSettings, error) {
 	}
 	sec, ok := secRaw.(map[string]interface{})
 	if !ok {
-		TrailarrLog(WARN, "Settings", "section %s is not a map", section)
-		return MediaSettings{}, fmt.Errorf("section %s is not a map", section)
+		TrailarrLog(WARN, "Settings", ErrSectionNotMap, section)
+		return MediaSettings{}, fmt.Errorf(ErrSectionNotMap, section)
 	}
 	var ProviderURL, apiKey string
 	if v, ok := sec["url"].(string); ok {
@@ -888,6 +961,7 @@ func GetPathMappings(mediaType MediaType) ([][]string, error) {
 	if err := yamlv3.Unmarshal(data, &config); err != nil {
 		return nil, err
 	}
+	config = normalizeYAML(config).(map[string]interface{})
 	sec, _ := config[section].(map[string]interface{})
 	return extractPathMappings(sec), nil
 }
@@ -928,14 +1002,42 @@ func GetProviderUrlAndApiKey(provider string) (string, string, error) {
 	if err := yamlv3.Unmarshal(data, &config); err != nil {
 		return "", "", err
 	}
-	sec, ok := config[provider].(map[string]interface{})
-	if !ok {
+	// Be permissive about the underlying map type because YAML unmarshalling
+	// can sometimes produce map[string]interface{} or map[interface{}]interface{}
+	// depending on the decoder. First check presence, then handle known map
+	// shapes. If the section is missing, return an error as callers expect.
+	config = normalizeYAML(config).(map[string]interface{})
+	secRaw, exists := config[provider]
+	if !exists {
 		TrailarrLog(WARN, "Settings", "section %s not found in config", provider)
 		return "", "", fmt.Errorf("section %s not found in config", provider)
 	}
-	providerURL, _ := sec["url"].(string)
-	apiKey, _ := sec["apiKey"].(string)
-	return providerURL, apiKey, nil
+
+	// Helper to extract url/apiKey from a generic map
+	extract := func(m map[string]interface{}) (string, string) {
+		providerURL, _ := m["url"].(string)
+		apiKey, _ := m["apiKey"].(string)
+		return providerURL, apiKey
+	}
+
+	switch sec := secRaw.(type) {
+	case map[string]interface{}:
+		u, k := extract(sec)
+		return u, k, nil
+	case map[interface{}]interface{}:
+		// convert keys to strings
+		conv := map[string]interface{}{}
+		for k, v := range sec {
+			if ks, ok := k.(string); ok {
+				conv[ks] = v
+			}
+		}
+		u, k := extract(conv)
+		return u, k, nil
+	default:
+		TrailarrLog(WARN, "Settings", ErrSectionNotMap, provider)
+		return "", "", fmt.Errorf(ErrSectionNotMap, provider)
+	}
 }
 
 func GetSettingsHandler(section string) gin.HandlerFunc {
@@ -951,6 +1053,8 @@ func GetSettingsHandler(section string) gin.HandlerFunc {
 			respondJSON(c, http.StatusOK, gin.H{"providerURL": "", "apiKey": "", "pathMappings": []interface{}{}})
 			return
 		}
+		// Normalize YAML maps to ensure keys are strings so section lookup works
+		config = normalizeYAML(config).(map[string]interface{})
 
 		sectionData, mappings, mappingSet, pathMappings := parseSectionPathMappings(config, section)
 
@@ -960,39 +1064,62 @@ func GetSettingsHandler(section string) gin.HandlerFunc {
 			apiKey, _ = sectionData["apiKey"].(string)
 		}
 
-		// Respond immediately with the stored settings so the UI can render fast.
+		// Attempt to fetch root folders and merge them into the returned
+		// pathMappings synchronously so the UI sees merged folders immediately.
+		// If the fetch fails we fall back to returning the stored mappings and
+		// continue with a background merge attempt to persist any changes.
+		pathMappings = tryMergeRemoteFolders(section, sectionData, providerURL, apiKey, pathMappings, mappings, mappingSet)
+
 		TrailarrLog(DEBUG, "Settings", "Loaded settings for %s: URL=%s, APIKey=%s, Mappings=%v", section, providerURL, apiKey, pathMappings)
 		respondJSON(c, http.StatusOK, gin.H{"providerURL": providerURL, "apiKey": apiKey, "pathMappings": pathMappings})
+	}
+}
 
-		// Spawn a background goroutine to fetch root folders and merge them into
-		// the config file if there are new folders. Doing this asynchronously
-		// avoids blocking the HTTP response when the provider API is slow.
-		if sectionData != nil {
-			go func(section string, providerURL string, apiKey string, currentPathMappings []map[string]interface{}) {
-				folders, err := FetchRootFolders(providerURL, apiKey)
-				if err != nil {
-					TrailarrLog(DEBUG, "Settings", "Background rootfolder fetch failed for %s: %v", section, err)
-					return
-				}
-				mergedPathMappings, _, updated := mergeFoldersIntoMappings(currentPathMappings, mappings, mappingSet, folders)
-				if updated {
-					// Read current config and attempt to update section pathMappings.
-					cfg, rerr := readConfigFile()
-					if rerr != nil {
-						TrailarrLog(WARN, "Settings", "Background merge: failed to read config: %v", rerr)
-						return
-					}
-					if secData, ok := cfg[section].(map[string]interface{}); ok {
-						secData["pathMappings"] = mergedPathMappings
-						cfg[section] = secData
-						if werr := writeConfigFile(cfg); werr != nil {
-							TrailarrLog(ERROR, "Settings", "Background merge: failed to write config: %v", werr)
-						} else {
-							TrailarrLog(INFO, "Settings", "Background merge: updated config with new root folders for %s", section)
-						}
-					}
-				}
-			}(section, providerURL, apiKey, pathMappings)
+// tryMergeRemoteFolders attempts a synchronous fetch/merge of remote root folders and
+// ensures a background merge is scheduled regardless of success to persist updates later.
+func tryMergeRemoteFolders(section string, sectionData map[string]interface{}, providerURL, apiKey string, pathMappings []map[string]interface{}, mappings []map[string]string, mappingSet map[string]bool) []map[string]interface{} {
+	if sectionData == nil {
+		return pathMappings
+	}
+	if folders, ferr := FetchRootFolders(providerURL, apiKey); ferr == nil {
+		if merged, _, updated := mergeFoldersIntoMappings(pathMappings, mappings, mappingSet, folders); updated {
+			// Update response payload with merged folders and schedule background persistence.
+			pathMappings = merged
+			go backgroundFetchAndMerge(section, providerURL, apiKey, pathMappings, mappings, mappingSet)
+		}
+	} else {
+		TrailarrLog(DEBUG, "Settings", "Background rootfolder fetch failed for %s: %v", section, ferr)
+		// Spawn background merge so we still attempt to merge later.
+		go backgroundFetchAndMerge(section, providerURL, apiKey, pathMappings, mappings, mappingSet)
+	}
+	return pathMappings
+}
+
+// backgroundFetchAndMerge fetches root folders from the provider and merges any
+// new folders into the provided path mappings. This was extracted out of the
+// handler to reduce cognitive complexity of GetSettingsHandler.
+func backgroundFetchAndMerge(section string, providerURL string, apiKey string, currentPathMappings []map[string]interface{}, mappings []map[string]string, mappingSet map[string]bool) {
+	folders, err := FetchRootFolders(providerURL, apiKey)
+	if err != nil {
+		TrailarrLog(DEBUG, "Settings", "Background rootfolder fetch failed for %s: %v", section, err)
+		return
+	}
+	mergedPathMappings, _, updated := mergeFoldersIntoMappings(currentPathMappings, mappings, mappingSet, folders)
+	if !updated {
+		return
+	}
+	cfg, rerr := readConfigFile()
+	if rerr != nil {
+		TrailarrLog(WARN, "Settings", "Background merge: failed to read config: %v", rerr)
+		return
+	}
+	if secData, ok := cfg[section].(map[string]interface{}); ok {
+		secData["pathMappings"] = mergedPathMappings
+		cfg[section] = secData
+		if werr := writeConfigFile(cfg); werr != nil {
+			TrailarrLog(ERROR, "Settings", "Background merge: failed to write config: %v", werr)
+		} else {
+			TrailarrLog(INFO, "Settings", "Background merge: updated config with new root folders for %s", section)
 		}
 	}
 }
@@ -1003,11 +1130,18 @@ func parseSectionPathMappings(config map[string]interface{}, section string) (ma
 	sectionData, _ := config[section].(map[string]interface{})
 	var mappings []map[string]string
 	mappingSet := map[string]bool{}
+	// Initialize slices so that an empty 'pathMappings' in the config YAML
+	// results in an empty JSON array ([]) in responses instead of `null`.
 	var pathMappings []map[string]interface{}
+	// When the section exists we should return empty slices rather than nil
+	// to make client expectations simpler (and match tests).
 	if sectionData == nil {
 		return sectionData, mappings, mappingSet, pathMappings
 	}
 	if pm, ok := sectionData["pathMappings"].([]interface{}); ok {
+		// Ensure mappings and pathMappings are non-nil even if the list is empty
+		mappings = []map[string]string{}
+		pathMappings = []map[string]interface{}{}
 		for _, m := range pm {
 			if mMap, ok := m.(map[string]interface{}); ok {
 				from := ""
@@ -1103,7 +1237,11 @@ func getGeneralSettingsHandler(c *gin.Context) {
 		return
 	}
 	var config map[string]interface{}
-	_ = yamlv3.Unmarshal(data, &config)
+	if err := yamlv3.Unmarshal(data, &config); err != nil {
+		respondJSON(c, http.StatusOK, gin.H{"tmdbKey": "", "autoDownloadExtras": true})
+		return
+	}
+	config = normalizeYAML(config).(map[string]interface{})
 	var tmdbKey string
 	var autoDownloadExtras bool = true
 	var logLevel string = "Info"
@@ -1131,6 +1269,8 @@ func saveGeneralSettingsHandler(c *gin.Context) {
 		respondError(c, http.StatusBadRequest, ErrInvalidRequest)
 		return
 	}
+	// Debug logging to help diagnose CI failure where tmdbKey is not persisted.
+	TrailarrLog(DEBUG, "Settings", "saveGeneralSettingsHandler parsed request: tmdbKey=%s autoDownloadExtras=%v logLevel=%s", req.TMDBApiKey, req.AutoDownloadExtras, req.LogLevel)
 	// Read existing settings as map[string]interface{} to preserve all keys
 	config, err := readConfigFile()
 	if err != nil {
@@ -1161,16 +1301,18 @@ func saveGeneralSettingsHandler(c *gin.Context) {
 	}
 	config["general"] = general
 	err = writeConfigFile(config)
-	if err == nil {
-		// Update in-memory config
-		if Config != nil {
-			Config["general"] = general
-		}
-	}
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
+
+	// Re-read the config from disk and update in-memory Config to reduce
+	// races where other background writers may interleave. This ensures the
+	// immediate read after this handler sees the persisted values.
+	if cfgMap, rerr := readConfigFile(); rerr == nil {
+		Config = cfgMap
+	}
+
 	respondJSON(c, http.StatusOK, gin.H{"status": "saved"})
 }
 

@@ -65,14 +65,7 @@ function BlacklistGroupItem({ item, idx, setYoutubeModal, setBlacklist }) {
   };
 
   return (
-    <div
-      key={uniqueKey}
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "stretch",
-      }}
-    >
+    <div key={uniqueKey} className="blacklist-group-item">
       <ExtraCard
         extra={extra}
         idx={idx}
@@ -90,45 +83,28 @@ function BlacklistGroupItem({ item, idx, setYoutubeModal, setBlacklist }) {
         onDownloaded={handleDownloaded}
       />
       {media.title &&
-        !!media.id &&
-        (mediaHref ? (
-          <a
-            href={mediaHref}
-            style={{
-              marginTop: 8,
-              fontSize: "0.97em",
-              color: isDark ? "#f3f4f6" : "#23232a",
-              textDecoration: "none",
-              textAlign: "center",
-              wordBreak: "break-word",
-              display: "block",
-              fontWeight: 500,
-            }}
-          >
-            {media.title}
-          </a>
-        ) : (
-          <button
-            type="button"
-            disabled
-            style={{
-              marginTop: 8,
-              fontSize: "0.97em",
-              color: isDark ? "#f3f4f6" : "#23232a",
-              background: "none",
-              border: "none",
-              textDecoration: "none",
-              textAlign: "center",
-              wordBreak: "break-word",
-              display: "block",
-              fontWeight: 500,
-              cursor: "not-allowed",
-              opacity: 0.7,
-            }}
-          >
-            {media.title}
-          </button>
-        ))}
+        !!media.id && (
+          <div className="blacklist-media-wrapper">
+            {mediaHref ? (
+              <a
+                href={mediaHref}
+                className="blacklist-media-link"
+                style={{ color: isDark ? "#f3f4f6" : "#23232a" }}
+              >
+                {media.title}
+              </a>
+            ) : (
+              <button
+                type="button"
+                disabled
+                className="blacklist-media-button"
+                style={{ color: isDark ? "#f3f4f6" : "#23232a" }}
+              >
+                {media.title}
+              </button>
+            )}
+          </div>
+        )}
     </div>
   );
 }
@@ -265,60 +241,42 @@ export default function BlacklistPage() {
     };
   }, []);
 
+  // Close modal on Escape/Enter key globally when youtube modal is open.
+  useEffect(() => {
+    if (!youtubeModal.open) return undefined;
+    const handler = (e) => {
+      if (e.key === "Escape" || e.key === "Enter") {
+        setYoutubeModal({ open: false, videoId: "" });
+      }
+    };
+  globalThis.addEventListener("keydown", handler);
+  return () => globalThis.removeEventListener("keydown", handler);
+  }, [youtubeModal.open]);
+
   if (loading) {
     const skeletonKeys = Array.from({ length: 8 }).map(
       () => `skeleton-${Math.random().toString(36).slice(2, 9)}`,
     );
     return (
-      <div style={{ padding: 32 }}>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, 220px)",
-            gap: 24,
-            padding: 0,
-            margin: 0,
-            width: "100%",
-            boxSizing: "border-box",
-          }}
-        >
+      <div className="blacklist-wrapper">
+        <div className="blacklist-grid">
           {skeletonKeys.map((key) => (
             <div
               key={key}
-              style={{
-                width: 220,
-                minHeight: 280,
-                borderRadius: 12,
-                background: isDark ? "#23232a" : "#f3f4f6",
-                padding: 12,
-                boxSizing: "border-box",
-                display: "flex",
-                flexDirection: "column",
-                gap: 10,
-              }}
+              className="blacklist-skeleton"
+              style={{ background: isDark ? "#23232a" : "#f3f4f6" }}
             >
               <div
-                style={{
-                  height: 140,
-                  borderRadius: 8,
-                  background: isDark ? "#1f2937" : "#e5e7eb",
-                }}
+                className="skeleton-thumb"
+                style={{ background: isDark ? "#1f2937" : "#e5e7eb" }}
               />
               <div
-                style={{
-                  height: 14,
-                  width: "70%",
-                  borderRadius: 6,
-                  background: isDark ? "#111827" : "#e9ecef",
-                }}
+                className="skeleton-line"
+                style={{ background: isDark ? "#111827" : "#e9ecef" }}
               />
               <div
-                style={{
-                  height: 12,
-                  width: "50%",
-                  borderRadius: 6,
-                  background: isDark ? "#111827" : "#e9ecef",
-                }}
+                className="skeleton-line short"
+                style={{ background: isDark ? "#111827" : "#e9ecef" }}
               />
               <div style={{ flex: 1 }} />
             </div>
@@ -329,7 +287,7 @@ export default function BlacklistPage() {
   }
   if (error) return <div style={{ color: "red", padding: 32 }}>{error}</div>;
   if (!blacklist || (Array.isArray(blacklist) && blacklist.length === 0))
-    return <div style={{ padding: 32 }}>No blacklisted extras found.</div>;
+    return <div className="no-items">No blacklisted extras found.</div>;
 
   // Normalize to array for rendering
   let items = null;
@@ -338,7 +296,7 @@ export default function BlacklistPage() {
     items = Object.values(blacklist);
   if (!Array.isArray(items)) {
     return (
-      <div style={{ padding: 32, color: "red" }}>
+      <div className="unexpected-format">
         Unexpected data format
         <br />
         <pre>{JSON.stringify(blacklist, null, 2)}</pre>
@@ -359,20 +317,7 @@ export default function BlacklistPage() {
     (acc, arr) => acc + arr.length,
     0,
   );
-  if (totalItems === 0)
-    return <div style={{ padding: 32 }}>No blacklisted extras found.</div>;
-
-  const gridStyle = {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, 220px)",
-    gap: 24,
-    padding: 32,
-    margin: 0,
-    width: "100%",
-    boxSizing: "border-box",
-    justifyItems: "start",
-    alignItems: "start",
-  };
+  if (totalItems === 0) return <div className="no-items">No blacklisted extras found.</div>;
 
   return (
     <Container
@@ -395,30 +340,16 @@ export default function BlacklistPage() {
         return (
           <div
             key={groupKey}
+            className="blacklist-group-container"
             style={{
-              marginBottom: 40,
               background: isDark ? "#23232a" : "#f3f4f6",
-              borderRadius: 12,
               boxShadow: isDark ? "0 2px 8px #0004" : "0 2px 8px #0001",
-              padding: 12,
             }}
           >
-            <SectionHeader
-              style={{
-                fontWeight: 600,
-                fontSize: "1.1em",
-                margin: "0 0 16px 8px",
-                color: "#ef4444",
-                textAlign: "left",
-                wordBreak: "break-word",
-              }}
-            >
+            <SectionHeader className="blacklist-section-header">
               {displayReason}
             </SectionHeader>
-            <div
-              className="BlacklistExtrasGrid"
-              style={{ ...gridStyle, justifyContent: "start" }}
-            >
+            <div className="blacklist-extras-grid" style={{ justifyContent: "start" }}>
               {groupItems.map((item, idx) => (
                 <BlacklistGroupItem
                   key={`${item.youtubeId || ""}-${item.mediaId || ""}-${item.mediaType || ""}`}
@@ -434,44 +365,15 @@ export default function BlacklistPage() {
       })}
 
       {youtubeModal.open && youtubeModal.videoId && (
-        <dialog
-          open
-          aria-modal="true"
-          className="blacklist-youtube-backdrop"
-          tabIndex={0}
-          onClick={() => setYoutubeModal({ open: false, videoId: "" })}
-          onKeyDown={(e) => {
-            if (e.key === "Escape" || e.key === "Enter")
-              setYoutubeModal({ open: false, videoId: "" });
-          }}
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "100vw",
-            height: "100vh",
-            background: "rgba(0,0,0,0.7)",
-            zIndex: 99999,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              position: "relative",
-              background: "#18181b",
-              borderRadius: 16,
-              boxShadow: "0 2px 24px #000",
-              padding: 0,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              overflow: "visible",
-            }}
-          >
-            {/* Removed visible close button; clicking backdrop will close the modal */}
+        <dialog open aria-modal="true" className="blacklist-youtube-backdrop">
+          {/* Fullscreen invisible button that sits behind the modal content and handles backdrop clicks. */}
+          <button
+            type="button"
+            aria-label="Close video"
+            className="blacklist-youtube-backdrop-btn"
+            onClick={() => setYoutubeModal({ open: false, videoId: "" })}
+          />
+          <div className="blacklist-youtube-modal" aria-label="YouTube video">
             <YoutubePlayer videoId={youtubeModal.videoId} />
           </div>
         </dialog>

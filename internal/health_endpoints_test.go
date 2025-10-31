@@ -13,8 +13,7 @@ const errFailedToDecodeResponse = "failed to decode response: %v"
 // Test that the global health execute route runs the full check and returns
 // success=false when providers are missing or unreachable.
 func TestGlobalHealthExecuteReturnsFailure(t *testing.T) {
-	tmp := CreateTempConfig(t)
-	_ = tmp
+	// rely on package-level TestMain temp root
 	ctx := context.Background()
 	_ = GetStoreClient().Del(ctx, HealthIssuesStoreKey)
 
@@ -42,8 +41,7 @@ func TestGlobalHealthExecuteReturnsFailure(t *testing.T) {
 
 // Test provider-specific execute: success when provider endpoint returns 200.
 func TestProviderHealthExecuteSuccess(t *testing.T) {
-	tmp := CreateTempConfig(t)
-	_ = tmp
+	// rely on package-level TestMain temp root
 	ctx := context.Background()
 	_ = GetStoreClient().Del(ctx, HealthIssuesStoreKey)
 
@@ -93,8 +91,7 @@ func TestProviderHealthExecuteSuccess(t *testing.T) {
 
 // Test provider-specific execute failure: provider returns 500 -> persisted issue and success=false
 func TestProviderHealthExecuteFailure(t *testing.T) {
-	tmp := CreateTempConfig(t)
-	_ = tmp
+	// rely on package-level TestMain temp root
 	ctx := context.Background()
 	_ = GetStoreClient().Del(ctx, HealthIssuesStoreKey)
 

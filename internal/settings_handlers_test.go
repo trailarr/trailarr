@@ -53,7 +53,7 @@ func TestSaveSettingsHandlerWritesFileAndUpdatesConfig(t *testing.T) {
 		t.Fatalf("expected 200, got %d body=%s", w.Code, w.Body.String())
 	}
 
-	// verify file written
+	// verify file written (use os.ReadFile so tests go through the same IO hook)
 	data, err := os.ReadFile(ConfigPath)
 	if err != nil {
 		t.Fatalf("failed to read config file: %v", err)
@@ -111,9 +111,7 @@ func TestGetSettingsHandlerMergesRootFolders(t *testing.T) {
 
 	// write config with radarr url pointing to test server
 	content := []byte("radarr:\n  url: " + ts.URL + "\n  apiKey: RKEY\n  pathMappings: []\n")
-	if err := os.WriteFile(ConfigPath, content, 0644); err != nil {
-		t.Fatalf("failed to write config file: %v", err)
-	}
+	WriteConfig(t, content)
 
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()

@@ -10,12 +10,8 @@ import (
 )
 
 func TestSettingsAndFilesListAndDownloadExtra(t *testing.T) {
-	// Use helper to create temp config dir and set TrailarrRoot/ConfigPath
-	tmp := CreateTempConfig(t)
-	// adjust other paths
-	MediaCoverPath = filepath.Join(tmp, "MediaCover")
-	LogsDir = filepath.Join(tmp, "logs")
-	_ = os.MkdirAll(LogsDir, 0755)
+	// rely on package-level TestMain temp root
+	_ = CreateTempConfig(t) // keep call for backward compatibility of config write behavior but ignore returned tmp
 
 	// start with a small config containing radarr/sonarr settings
 	WriteConfig(t, []byte(`radarr:
@@ -60,8 +56,8 @@ sonarr:
 	}
 
 	// Test POST /api/extras/download enqueues item and writes meta file when media path exists
-	// seed a movie entry with a path
-	movie := map[string]interface{}{"id": 55, "title": "Z", "path": filepath.Join(tmp, "m55")}
+	// seed a movie entry with a path (use global TrailarrRoot)
+	movie := map[string]interface{}{"id": 55, "title": "Z", "path": filepath.Join(TrailarrRoot, "m55")}
 	_ = os.MkdirAll(movie["path"].(string), 0755)
 	_ = SaveMediaToStore(MoviesStoreKey, []map[string]interface{}{movie})
 
@@ -82,8 +78,7 @@ sonarr:
 }
 
 func TestLogsListHandler(t *testing.T) {
-	tmp := t.TempDir()
-	LogsDir = tmp
+	_ = CreateTempConfig(t)
 	// create a log file
 	fpath := filepath.Join(LogsDir, "a.txt")
 	if err := os.WriteFile(fpath, []byte("x"), 0644); err != nil {

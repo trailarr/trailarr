@@ -26,9 +26,7 @@ func TestGetExtraTypesConfigReadsFromDiskWhenConfigNil(t *testing.T) {
 
 	// write a config file with extraTypes disabling trailers
 	content := []byte("extraTypes:\n  trailers: false\n  scenes: true\n")
-	if err := os.WriteFile(ConfigPath, content, 0644); err != nil {
-		t.Fatalf("failed to write config file: %v", err)
-	}
+	WriteConfig(t, content)
 
 	// ensure in-memory Config is nil
 	Config = nil

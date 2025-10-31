@@ -2,20 +2,12 @@ package internal
 
 import (
 	"os"
-	"path/filepath"
 	"testing"
 )
 
 func TestEnsureConfigDefaultsAndCanonicalizeConfig(t *testing.T) {
-	tmp := t.TempDir()
-	// Override paths
-	TrailarrRoot = tmp
-	ConfigPath = filepath.Join(TrailarrRoot, "config", "config.yml")
-
-	// Ensure parent config dir exists so writeConfigFile can succeed
-	if err := os.MkdirAll(filepath.Dir(ConfigPath), 0755); err != nil {
-		t.Fatalf("failed to create config dir: %v", err)
-	}
+	// Use package-level test root and create a per-test config file there.
+	CreateTempConfig(t)
 	// Ensure defaults creates a config file
 	if err := EnsureConfigDefaults(); err != nil {
 		t.Fatalf("EnsureConfigDefaults failed: %v", err)
@@ -40,9 +32,8 @@ func TestEnsureConfigDefaultsAndCanonicalizeConfig(t *testing.T) {
 }
 
 func TestEnsureSyncTimingsConfig(t *testing.T) {
-	tmp := t.TempDir()
-	TrailarrRoot = tmp
-	ConfigPath = filepath.Join(TrailarrRoot, "config", "config.yml")
+	// Use package-level test root and per-test config.
+	CreateTempConfig(t)
 	timings, err := EnsureSyncTimingsConfig()
 	if err != nil {
 		t.Fatalf("EnsureSyncTimingsConfig failed: %v", err)

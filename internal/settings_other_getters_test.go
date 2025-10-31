@@ -1,14 +1,23 @@
 package internal
 
 import (
+	"os"
 	"testing"
 )
 
 func TestGetYtdlpFlagsConfigReadsFromDiskWhenConfigNil(t *testing.T) {
+	// rely on package-level TestMain temp root
+	// ensure per-test config file so background writers don't interfere
 	CreateTempConfig(t)
 	// write a config file with specific ytdlpFlags
 	content := []byte("ytdlpFlags:\n  quiet: true\n  cookiesFromBrowser: firefox\n")
 	WriteConfig(t, content)
+	// Debug: log the written config file contents to help CI debugging
+	if b, err := os.ReadFile(ConfigPath); err == nil {
+		t.Logf("wrote config to %s: %s", ConfigPath, string(b))
+	} else {
+		t.Logf("failed to read back config %s: %v", ConfigPath, err)
+	}
 	Config = nil
 	cfg, err := GetYtdlpFlagsConfig()
 	if err != nil {
@@ -23,6 +32,8 @@ func TestGetYtdlpFlagsConfigReadsFromDiskWhenConfigNil(t *testing.T) {
 }
 
 func TestGetCanonicalizeExtraTypeConfigReadsFromDisk(t *testing.T) {
+	// rely on package-level TestMain temp root
+	// ensure per-test config file so background writers don't interfere
 	CreateTempConfig(t)
 	// write a config file with canonicalize mapping
 	content := []byte("canonicalizeExtraType:\n  mapping:\n    Trailer: Trailers\n    Featurette: Featurettes\n")
@@ -40,6 +51,8 @@ func TestGetCanonicalizeExtraTypeConfigReadsFromDisk(t *testing.T) {
 }
 
 func TestGetPathMappingsAndProviderUrlApiKey(t *testing.T) {
+	// rely on package-level TestMain temp root
+	// ensure per-test config file so background writers don't interfere
 	CreateTempConfig(t)
 	// write a config file with radarr section including pathMappings
 	content := []byte("radarr:\n  url: http://radarr.local\n  apiKey: RKEY\n  pathMappings:\n    - from: /mnt/movies\n      to: /media/movies\n")

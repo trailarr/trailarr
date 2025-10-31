@@ -130,7 +130,6 @@ export default function ExtrasSettings() {
     setSaving(true);
     setToast("");
     setError("");
-    setYtError("");
     try {
       await axios.post("/api/settings/extratypes", settings);
       await axios.post("/api/settings/canonicalizeextratype", { mapping });

@@ -116,7 +116,7 @@ func TestCanonicalizeExtraTypeMapping(t *testing.T) {
 	_ = os.MkdirAll(filepath.Dir(ConfigPath), 0o755)
 	// write config with mapping
 	cfg := []byte("canonicalizeExtraType:\n  mapping:\n    OldType: NewType\n")
-	_ = os.WriteFile(ConfigPath, cfg, 0o644)
+	WriteConfig(t, cfg)
 	defer func() {
 		TrailarrRoot = old
 		ConfigPath = oldCfg

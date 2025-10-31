@@ -22,9 +22,7 @@ func TestGetPathMappingsTVAndProviderMissing(t *testing.T) {
 	ConfigPath = filepath.Join(cfgDir, "config.yml")
 
 	content := []byte("sonarr:\n  url: http://sonarr.local\n  apiKey: SKEY\n  pathMappings:\n    - from: /mnt/tv\n      to: /media/tv\n")
-	if err := os.WriteFile(ConfigPath, content, 0644); err != nil {
-		t.Fatalf("failed to write config file: %v", err)
-	}
+	WriteConfig(t, content)
 
 	mappings, err := GetPathMappings(MediaTypeTV)
 	if err != nil {

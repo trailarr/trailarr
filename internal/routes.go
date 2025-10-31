@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	assets "trailarr/web"
 
@@ -409,8 +411,8 @@ func persistProviderHealthIssue(provider string, terr error) {
 	client := GetStoreClient()
 	ctx := context.Background()
 	hm := HealthMsg{
-		Message: fmt.Sprintf("%s connectivity failed: %v", strings.Title(provider), terr),
-		Source:  strings.Title(provider),
+		Message: fmt.Sprintf("%s connectivity failed: %v", capitalize(provider), terr),
+		Source:  capitalize(provider),
 		Level:   "warning",
 	}
 	b, jerr := json.Marshal(hm)
@@ -439,6 +441,16 @@ func persistProviderHealthIssue(provider string, terr error) {
 	}
 	_ = client.RPush(ctx, HealthIssuesStoreKey, b)
 	_ = client.LTrim(ctx, HealthIssuesStoreKey, -100, -1)
+}
+
+// capitalize returns the input string with the first rune title-cased in a
+// UTF-8 aware manner. We avoid using strings.Title which is deprecated.
+func capitalize(s string) string {
+	if s == "" {
+		return s
+	}
+	r, size := utf8.DecodeRuneInString(s)
+	return string(unicode.ToUpper(r)) + s[size:]
 }
 
 // clearProviderHealthIssues removes any persisted health issues for the specified provider.

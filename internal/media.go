@@ -155,11 +155,10 @@ func fetchFirstSuccessful(urls []string) (*http.Response, error) {
 
 func serveFallbackSVG(c *gin.Context) {
 	svg := `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="64" height="64" role="img" aria-label="Unavailable">
-  <circle cx="64" cy="64" r="30" fill="none" stroke="#888" stroke-width="8" />
-  <!-- diagonal from top-right to bottom-left -->
-  <line x1="92" y1="36" x2="36" y2="92" stroke="#888" stroke-width="10" stroke-linecap="round" />
-</svg>`
+			<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Unavailable">
+			<circle cx="64" cy="64" r="40" fill="none" stroke="#888" stroke-width="12" />
+			<line x1="92" y1="36" x2="36" y2="92" stroke="#888" stroke-width="12" stroke-linecap="round" />
+			</svg>`
 	c.Header(HeaderContentType, "image/svg+xml")
 	c.Header("X-Proxy-Fallback", "1")
 	c.Header(cacheControlHeader, cacheControlValue)
@@ -1173,10 +1172,50 @@ func GetMediaByIdHandler(cacheFile, key string) gin.HandlerFunc {
 
 // Returns true if the media has any extras of the enabled types (case/plural robust)
 func HasAnyEnabledExtras(mediaType MediaType, mediaId int, enabledTypes []string) bool {
+	if hasPersistedDownloadedExtras(mediaType, mediaId, enabledTypes) {
+		return true
+	}
+	if hasFilesystemExtras(mediaType, mediaId, enabledTypes) {
+		return true
+	}
+	return false
+}
+
+// helper: check persisted extras for downloaded status matching enabled types
+func hasPersistedDownloadedExtras(mediaType MediaType, mediaId int, enabledTypes []string) bool {
 	extras, _ := SearchExtras(mediaType, mediaId)
 	for _, e := range extras {
+		if !strings.EqualFold(e.Status, "downloaded") {
+			continue
+		}
 		for _, typ := range enabledTypes {
 			if strings.EqualFold(e.ExtraType, typ) || strings.EqualFold(e.ExtraType+"s", typ) || strings.EqualFold(e.ExtraType, typ+"s") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// helper: scan filesystem for existing extras matching enabled types
+func hasFilesystemExtras(mediaType MediaType, mediaId int, enabledTypes []string) bool {
+	cacheFile, err := resolveCachePath(mediaType)
+	if err != nil {
+		return false
+	}
+	mediaPath, _ := FindMediaPathByID(cacheFile, mediaId)
+	if mediaPath == "" {
+		return false
+	}
+	existing := ScanExistingExtras(mediaPath)
+	for key := range existing {
+		parts := strings.SplitN(key, "|", 2)
+		if len(parts) == 0 {
+			continue
+		}
+		et := parts[0]
+		for _, typ := range enabledTypes {
+			if strings.EqualFold(et, typ) || strings.EqualFold(et+"s", typ) || strings.EqualFold(et, typ+"s") {
 				return true
 			}
 		}
