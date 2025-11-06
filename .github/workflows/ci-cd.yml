@@ -30,18 +30,16 @@ jobs:
         run: |
           cd web
           npm run test:coverage
-      - name: Upload web coverage (lcov)
-        uses: actions/upload-artifact@v4
-        with:
-          name: web-coverage-lcov
-          path: web/coverage/lcov.info
-          if-no-files-found: warn
+      - name: List web coverage folder (debug)
+        run: |
+          echo "Coverage folder listing:"
+          ls -la web/coverage || echo "web/coverage not found"
       - name: Upload web coverage folder
         uses: actions/upload-artifact@v4
         with:
           name: web-coverage
           path: web/coverage/
-          if-no-files-found: warn
+          if-no-files-found: ignore
       - name: Lint frontend
         run: |
           cd web
