@@ -24,6 +24,7 @@ import {
   getMoviesWanted,
   getSeriesWanted,
 } from "./api";
+import { getSearchSections as _getSearchSections } from "./utils/search";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { isDark } from "./utils/isDark";
 
@@ -177,19 +178,9 @@ function App() {
   }, []);
 
   // Separate search results into title and overview matches
-  const getSearchSections = (items) => {
-    if (!search.trim()) return { titleMatches: items, overviewMatches: [] };
-    const q = search.trim().toLowerCase();
-    const titleMatches = items.filter((item) =>
-      item.title?.toLowerCase().includes(q),
-    );
-    const overviewMatches = items.filter(
-      (item) =>
-        !titleMatches.includes(item) &&
-        item.overview?.toLowerCase().includes(q),
-    );
-    return { titleMatches, overviewMatches };
-  };
+  // Use the shared util but bind the current `search` state so callers can
+  // simply pass `items` (this preserves the previous API used by child components).
+  const getSearchSections = (items) => _getSearchSections(items, search);
 
   // Compute dynamic page title
   let pageTitle = selectedSection;
