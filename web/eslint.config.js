@@ -2,7 +2,6 @@ import js from "@eslint/js";
 import globals from "globals";
 import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
-import vitestPlugin from "eslint-plugin-vitest";
 import { defineConfig, globalIgnores } from "eslint/config";
 
 export default defineConfig([
@@ -12,7 +11,6 @@ export default defineConfig([
     plugins: {
       "react-hooks": reactHooks,
       "react-refresh": reactRefresh,
-      vitest: vitestPlugin,
     },
     extends: [js.configs.recommended],
     languageOptions: {
@@ -45,6 +43,5 @@ export default defineConfig([
         afterAll: "readonly",
       },
     },
-    plugins: { vitest: vitestPlugin },
   },
 ]);
