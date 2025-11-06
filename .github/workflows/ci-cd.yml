@@ -26,6 +26,22 @@ jobs:
         run: |
           cd web
           npm ci
+      - name: Run frontend tests and collect coverage
+        run: |
+          cd web
+          npm run test:coverage
+      - name: Upload web coverage (lcov)
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-coverage-lcov
+          path: web/coverage/lcov.info
+          if-no-files-found: warn
+      - name: Upload web coverage folder
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-coverage
+          path: web/coverage/
+          if-no-files-found: warn
       - name: Lint frontend
         run: |
           cd web
