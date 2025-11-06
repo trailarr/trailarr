@@ -1,5 +1,4 @@
 import { describe, it, expect, vi } from 'vitest'
-import * as isDarkModule from '../../utils/isDark'
 
 describe('isDark utilities', () => {
   const origMatchMedia = globalThis.matchMedia
@@ -10,20 +9,20 @@ describe('isDark utilities', () => {
     vi.resetModules()
   })
 
-  it('isDarkNow returns true when matchMedia reports matches', () => {
+  it('isDarkNow returns true when matchMedia reports matches', async () => {
     globalThis.matchMedia = () => ({ matches: true })
     // import the function fresh
-    const { isDarkNow } = require('../../utils/isDark')
+    const { isDarkNow } = await import('../../utils/isDark')
     expect(isDarkNow()).toBe(true)
   })
 
-  it('isDarkNow returns false when matchMedia not available', () => {
+  it('isDarkNow returns false when matchMedia not available', async () => {
     delete globalThis.matchMedia
-    const { isDarkNow } = require('../../utils/isDark')
+    const { isDarkNow } = await import('../../utils/isDark')
     expect(isDarkNow()).toBe(false)
   })
 
-  it('addDarkModeListener registers listener and cleanup removes it', () => {
+  it('addDarkModeListener registers listener and cleanup removes it', async () => {
     const listeners = {}
     globalThis.matchMedia = () => ({
       matches: false,
@@ -36,7 +35,7 @@ describe('isDark utilities', () => {
     })
 
     // import fresh to ensure module uses our mocked matchMedia
-    const { addDarkModeListener } = require('../../utils/isDark')
+    const { addDarkModeListener } = await import('../../utils/isDark')
     const cb = vi.fn()
     const cleanup = addDarkModeListener(cb)
 
