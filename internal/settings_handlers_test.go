@@ -19,17 +19,17 @@ const radarrBaseURL = "http://radarr.test"
 func TestSaveSettingsHandlerWritesFileAndUpdatesConfig(t *testing.T) {
 	tmp := t.TempDir()
 	oldRoot := TrailarrRoot
-	oldConfigPath := ConfigPath
+	oldConfigPath := GetConfigPath()
 	defer func() {
 		TrailarrRoot = oldRoot
-		ConfigPath = oldConfigPath
+		SetConfigPath(oldConfigPath)
 	}()
 	TrailarrRoot = tmp
 	cfgDir := filepath.Join(TrailarrRoot, "config")
 	if err := os.MkdirAll(cfgDir, 0755); err != nil {
 		t.Fatalf("failed to create config dir: %v", err)
 	}
-	ConfigPath = filepath.Join(cfgDir, "config.yml")
+	SetConfigPath(filepath.Join(cfgDir, "config.yml"))
 
 	// ensure in-memory Config exists so handler updates it
 	Config = map[string]interface{}{}
@@ -54,7 +54,7 @@ func TestSaveSettingsHandlerWritesFileAndUpdatesConfig(t *testing.T) {
 	}
 
 	// verify file written (use os.ReadFile so tests go through the same IO hook)
-	data, err := os.ReadFile(ConfigPath)
+	data, err := os.ReadFile(GetConfigPath())
 	if err != nil {
 		t.Fatalf("failed to read config file: %v", err)
 	}

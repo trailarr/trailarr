@@ -29,12 +29,12 @@ func TestMain(m *testing.M) {
 	_ = os.Setenv("TMPDIR", TrailarrRoot)
 	_ = os.Setenv("TEMP", TrailarrRoot)
 	_ = os.Setenv("TMP", TrailarrRoot)
-	ConfigPath = filepath.Join(TrailarrRoot, "config", "config.yml")
+	SetConfigPath(filepath.Join(TrailarrRoot, "config", "config.yml"))
 	// Redefine derived globals so they point into the test temp root.
 	MediaCoverPath = filepath.Join(TrailarrRoot, "MediaCover")
 	CookiesFile = filepath.Join(TrailarrRoot, "cookies.txt")
 	LogsDir = filepath.Join(TrailarrRoot, "logs")
-	_ = os.MkdirAll(filepath.Dir(ConfigPath), 0o755)
+	_ = os.MkdirAll(filepath.Dir(GetConfigPath()), 0o755)
 	// Ensure directories used by other components exist
 	_ = os.MkdirAll(MediaCoverPath, 0o755)
 	_ = os.MkdirAll(LogsDir, 0o755)

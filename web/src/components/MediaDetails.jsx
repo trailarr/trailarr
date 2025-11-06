@@ -4,7 +4,7 @@ import ActionLane from "./ActionLane.jsx";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSearch, faSpinner } from "@fortawesome/free-solid-svg-icons";
 import ExtrasList from "./ExtrasList";
-import YoutubePlayer from "./YoutubePlayer.jsx";
+import YoutubeModal from "./YoutubeModal.jsx";
 import Container from "./Container.jsx";
 import Toast from "./Toast.jsx";
 import "./MediaDetails.css";
@@ -14,11 +14,6 @@ import { getExtras } from "../api";
 import { searchYoutubeStream } from "../api.youtube.sse";
 import { isDark } from "../utils/isDark.js";
 
-YoutubeModal.propTypes = {
-  open: PropTypes.bool.isRequired,
-  videoId: PropTypes.string.isRequired,
-  onClose: PropTypes.func.isRequired,
-};
 // Top-level WebSocket message handler for extras queue updates
 function handleExtrasQueueUpdate(msg, mediaId, setExtras, setError) {
   if (msg.type === "download_queue_update" && Array.isArray(msg.queue)) {
@@ -30,36 +25,6 @@ function handleExtrasQueueUpdate(msg, mediaId, setExtras, setError) {
   }
 }
 
-// Accessible YouTube modal component
-function YoutubeModal({ open, videoId, onClose }) {
-  if (!open || !videoId) return null;
-  return (
-    <dialog
-      open
-      aria-modal="true"
-      aria-label="YouTube modal dialog"
-      className="md-youtube-modal-backdrop"
-      tabIndex={0}
-      onClick={(e) => {
-        // Close when clicking the backdrop (dialog itself), but not when clicking
-        // inside the content area.
-        if (e.target === e.currentTarget) onClose();
-      }}
-      onKeyDown={(e) => {
-        // Allow keyboard users to close the dialog when it has focus
-        if (e.key === "Escape" || e.key === "Enter") onClose();
-      }}
-    >
-      <div
-        className="md-youtube-modal-content"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Visible close button removed; backdrop click handles close */}
-        <YoutubePlayer videoId={videoId} />
-      </div>
-    </dialog>
-  );
-}
 // Helper to update extras with queue status (moved to outer scope)
 function updateExtraWithQueueStatus(ex, queue, mediaId, setError) {
   const found = queue.find(

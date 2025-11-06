@@ -236,18 +236,6 @@ func (c *BoltClient) LRange(ctx context.Context, key string, start, stop int64) 
 	return out[start : stop+1], nil
 }
 
-func listBucketValues(b *bolt.Bucket) [][]byte {
-	var vals [][]byte
-	if b == nil {
-		return vals
-	}
-	_ = b.ForEach(func(k, v []byte) error {
-		vals = append(vals, append([]byte(nil), v...))
-		return nil
-	})
-	return vals
-}
-
 // listBucketKVs returns the key/value pairs in the bucket in iteration order.
 // Keys and values are copied so callers may modify returned slices safely.
 func listBucketKVs(b *bolt.Bucket) [][2][]byte {

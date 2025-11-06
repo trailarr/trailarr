@@ -16,17 +16,16 @@ function getSelectedSection(path) {
 }
 
 function getSelectedSettingsSub(path) {
-  if (path.startsWith("/wanted/")) {
-    if (path.startsWith("/wanted/movies")) return "Movies";
-    if (path.startsWith("/wanted/series")) return "Series";
-    return "Movies";
-  }
-  if (path.startsWith("/settings/")) {
-    if (path.startsWith("/settings/general")) return "General";
-    if (path.startsWith("/settings/radarr")) return "Radarr";
-    if (path.startsWith("/settings/sonarr")) return "Sonarr";
-    if (path.startsWith("/settings/extras")) return "Extras";
-    return "General";
+  const settingsMap = {
+    "/settings/general": "General",
+    "/settings/radarr": "Radarr",
+    "/settings/sonarr": "Sonarr",
+    "/settings/plex": "Plex",
+    "/settings/extras": "Extras",
+    "/settings/ytdlp": "Ytdlp",
+  };
+  for (const [route, label] of Object.entries(settingsMap)) {
+    if (path.startsWith(route)) return label;
   }
   return "";
 }

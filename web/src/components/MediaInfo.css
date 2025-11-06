@@ -165,6 +165,64 @@
   color: #eee;
 }
 
+/* IMDb rating styling: white with shadow to match other info elements */
+.media-info-rating {
+  color: #fff;
+  text-shadow: 0 1px 2px #000;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+.media-info-imdb-badge {
+  background: #f5c518; /* IMDb yellow */
+  color: #000; /* black text */
+  border-radius: 2px; /* less radius */
+  padding: 1px 4px; /* reduced padding to tighten space */
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 1;
+  display: inline-block;
+  /* no shadow */
+  letter-spacing: 0.1px; /* reduced letter spacing */
+  /* Use IMDb logo font if available; falls back to UI fonts otherwise */
+  font-family: 'IMDbLogo', "Helvetica Neue", Arial, sans-serif;
+}
+
+.media-info-imdb-img {
+  height: 18px;
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+.media-info-rating-value {
+  /* rating value: keep white with subtle shadow for legibility */
+  color: #fff;
+  text-shadow: 0 1px 2px #000;
+}
+
+/* Provider icon used in the media info title (Radarr/Sonarr) */
+.media-info-provider-icon {
+  height: 18px;
+  width: auto;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* Container for provider icons next to the rating */
+.media-info-providers {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 10px;
+}
+
+/* Slightly reduce IconButton padding when used as a compact provider button */
+.media-info-providers .icon-button {
+  padding: 4px;
+}
+
 .media-info-section {
   margin-bottom: 8px;
 }

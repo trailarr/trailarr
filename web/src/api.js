@@ -37,10 +37,12 @@ export async function getMoviesWanted() {
 
 // API functions for Gin backend
 
-export async function getRadarrSettings() {
-  const res = await fetch("/api/settings/radarr");
-  if (!res.ok) throw new Error("Failed to fetch Radarr settings");
-  return await res.json();
+export async function getProviderSettings(provider) {
+  const res = await fetch(`/api/settings/${provider}`);
+  if (!res.ok) throw new Error(`Failed to fetch ${provider} settings`);
+  const data = await res.json();
+  // Backend returns { providerURL, apiKey, pathMappings }. Normalize to { url, apiKey }
+  return { url: data.providerURL || data.url || "", apiKey: data.apiKey || "" };
 }
 
 // New: get extras for a movie or series by id

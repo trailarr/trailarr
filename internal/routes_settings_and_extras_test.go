@@ -77,9 +77,9 @@ func TestSettingsPOSTHandlers(t *testing.T) {
 			t.Fatalf("failed to read config after retries: %v", err)
 		}
 		if tm, _ := general["tmdbKey"].(string); tm != "abc" {
-			raw, _ := os.ReadFile(ConfigPath)
+			raw, _ := os.ReadFile(GetConfigPath())
 			pretty, _ := json.MarshalIndent(cfg, "", "  ")
-			t.Logf("ConfigPath=%s", ConfigPath)
+			t.Logf("ConfigPath=%s", GetConfigPath())
 			t.Logf("Config file raw contents:\n%s", string(raw))
 			t.Logf("Parsed config: %s", string(pretty))
 			t.Logf("Last POST response body: %s", lastPostBody)

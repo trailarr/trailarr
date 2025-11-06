@@ -15,12 +15,12 @@ import Wanted from "./components/Wanted";
 const ProviderSettingsPage = lazy(() => import("./components/ProviderSettingsPage"));
 const ExtrasSettings = lazy(() => import("./components/ExtrasSettings"));
 const YtdlpFlagsSettings = lazy(() => import("./components/YtdlpFlagsSettings"));
+const PlexSettings = lazy(() => import("./components/PlexSettings"));
 import LogsPage from "./components/LogsPage";
 import StatusPage from "./components/StatusPage";
 import {
   getSeries,
   getMovies,
-  getRadarrSettings,
   getMoviesWanted,
   getSeriesWanted,
 } from "./api";
@@ -162,37 +162,6 @@ function App() {
   const [movies, setMovies] = useState([]);
   const [moviesError, setMoviesError] = useState("");
   const [moviesLoading, setMoviesLoading] = useState(true);
-
-  useEffect(() => {
-    getRadarrSettings()
-      .then((res) => {
-        localStorage.setItem("radarrUrl", res.url || "");
-        localStorage.setItem("radarrApiKey", res.apiKey || "");
-      })
-      .catch(() => {
-        localStorage.setItem("radarrUrl", "");
-        localStorage.setItem("radarrApiKey", "");
-      });
-    // Sonarr settings fetch fallback
-    async function getSonarrSettings() {
-      try {
-        const res = await fetch("/api/settings/sonarr");
-        if (!res.ok) throw new Error("Failed to fetch Sonarr settings");
-        return await res.json();
-      } catch {
-        return { url: "", apiKey: "" };
-      }
-    }
-    getSonarrSettings()
-      .then((res) => {
-        localStorage.setItem("sonarrUrl", res.url || "");
-        localStorage.setItem("sonarrApiKey", res.apiKey || "");
-      })
-      .catch(() => {
-        localStorage.setItem("sonarrUrl", "");
-        localStorage.setItem("sonarrApiKey", "");
-      });
-  }, []);
 
   useEffect(() => {
     setMoviesLoading(true);
@@ -444,6 +413,14 @@ function App() {
                 element={
                   <Suspense fallback={null}>
                     <ProviderSettingsPage type="sonarr" />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/settings/plex"
+                element={
+                  <Suspense fallback={null}>
+                    <PlexSettings />
                   </Suspense>
                 }
               />

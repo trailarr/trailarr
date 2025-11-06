@@ -21,9 +21,9 @@ func TestCacheMediaPostersHandlesFetchFailure(t *testing.T) {
 	cfgPath := filepath.Join(tmp, "cfg.yml")
 	data, _ := json.Marshal(cfg)
 	_ = os.WriteFile(cfgPath, data, 0644)
-	oldCfg := ConfigPath
-	ConfigPath = cfgPath
-	defer func() { ConfigPath = oldCfg }()
+	oldCfg := GetConfigPath()
+	SetConfigPath(cfgPath)
+	defer func() { SetConfigPath(oldCfg) }()
 
 	baseDir := filepath.Join(tmp, "covers")
 	idList := []map[string]interface{}{{"id": 9}}
@@ -55,9 +55,9 @@ func TestCacheMediaPostersHandlesCreateFailure(t *testing.T) {
 	cfgPath := filepath.Join(tmp, "cfg.yml")
 	data, _ := json.Marshal(cfg)
 	_ = os.WriteFile(cfgPath, data, 0644)
-	oldCfg := ConfigPath
-	ConfigPath = cfgPath
-	defer func() { ConfigPath = oldCfg }()
+	oldCfg := GetConfigPath()
+	SetConfigPath(cfgPath)
+	defer func() { SetConfigPath(oldCfg) }()
 
 	// Create a file at baseDir/9 so that MkdirAll may still create it, but creating localPath will fail
 	baseDir := filepath.Join(tmp, "covers")

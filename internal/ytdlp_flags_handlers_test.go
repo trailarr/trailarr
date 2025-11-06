@@ -34,8 +34,7 @@ func TestSaveAndGetYtdlpFlagsHandler(t *testing.T) {
 	r.GET(ytdlpFlagsSettingsPath, GetYtdlpFlagsConfigHandler)
 
 	payload := map[string]interface{}{
-		"quiet":              true,
-		"cookiesFromBrowser": "edge",
+		"quiet": true,
 	}
 	b, _ := json.Marshal(payload)
 	req := httptest.NewRequest("POST", ytdlpFlagsSettingsPath, bytes.NewReader(b))

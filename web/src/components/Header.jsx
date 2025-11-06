@@ -30,7 +30,7 @@ export default function Header({
     >
       <div style={{ display: "flex", alignItems: "center", gap: 16, flex: 1 }}>
         <img
-          src="/logo.svg"
+          src="/icons/logo.svg"
           alt="Logo"
           style={{
             width: mobile ? 28 : 40,

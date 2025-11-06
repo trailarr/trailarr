@@ -14,9 +14,11 @@ export default function GeneralSettings() {
   const [tmdbKey, setTmdbKey] = useState("");
   const [autoDownloadExtras, setAutoDownloadExtras] = useState(true);
   const [logLevel, setLogLevel] = useState("Debug");
+  const [frontendUrl, setFrontendUrl] = useState("");
   const [originalKey, setOriginalKey] = useState("");
   const [originalAutoDownload, setOriginalAutoDownload] = useState(true);
   const [originalLogLevel, setOriginalLogLevel] = useState("Debug");
+  const [originalFrontendUrl, setOriginalFrontendUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState("");
   const [toastSuccess, setToastSuccess] = useState(true);
@@ -53,12 +55,15 @@ export default function GeneralSettings() {
         setOriginalAutoDownload(data.autoDownloadExtras !== false);
         setLogLevel(data.logLevel || "Debug");
         setOriginalLogLevel(data.logLevel || "Debug");
+        setFrontendUrl(data.frontendUrl || "");
+        setOriginalFrontendUrl(data.frontendUrl || "");
       });
   }, []);
   const isChanged =
     tmdbKey !== originalKey ||
     autoDownloadExtras !== originalAutoDownload ||
-    logLevel !== originalLogLevel;
+    logLevel !== originalLogLevel ||
+    frontendUrl !== originalFrontendUrl;
 
   const testTmdbKey = async () => {
     setTesting(true);
@@ -94,7 +99,7 @@ export default function GeneralSettings() {
       const res = await fetch("/api/settings/general", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tmdbKey, autoDownloadExtras, logLevel }),
+        body: JSON.stringify({ tmdbKey, autoDownloadExtras, logLevel, frontendUrl }),
       });
       if (res.ok) {
         setToast("Settings saved successfully!");
@@ -102,6 +107,7 @@ export default function GeneralSettings() {
         setOriginalKey(tmdbKey);
         setOriginalAutoDownload(autoDownloadExtras);
         setOriginalLogLevel(logLevel);
+        setOriginalFrontendUrl(frontendUrl);
       } else {
         setToast("Error saving settings.");
         setToastSuccess(false);
@@ -249,6 +255,47 @@ export default function GeneralSettings() {
             </div>
           </fieldset>
         </div>
+        <SectionHeader>Frontend URL</SectionHeader>
+        <div
+          style={{
+            width: "100%",
+            alignItems: "flex-start",
+            display: "flex",
+            flexDirection: "column",
+            gap: "0.5rem",
+          }}
+        >
+          <label
+            htmlFor="frontendUrl"
+            style={{
+              fontWeight: 600,
+              fontSize: "1.15em",
+              marginBottom: 6,
+              display: "block",
+              textAlign: "left",
+            }}
+          >
+            Frontend URL
+          </label>
+          <input
+            id="frontendUrl"
+            type="text"
+            value={frontendUrl}
+            onChange={(e) => setFrontendUrl(e.target.value)}
+            placeholder="http://localhost:8080"
+            style={{
+              width: "60%",
+              minWidth: 220,
+              maxWidth: 600,
+              padding: "0.5rem",
+              borderRadius: 6,
+              border: "1px solid #bbb",
+              background: "var(--settings-input-bg, #f5f5f5)",
+              color: "var(--settings-input-text, #222)",
+            }}
+          />
+        </div>
+
         <SectionHeader>Log Level</SectionHeader>
         <div
           style={{

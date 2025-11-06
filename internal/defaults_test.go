@@ -18,10 +18,10 @@ func TestEnsureYtdlpDefaults(t *testing.T) {
 	if !ensureYtdlpDefaults(cfg) {
 		t.Fatalf("expected ensureYtdlpDefaults to set defaults when missing")
 	}
-	// ensure existing map keeps values
-	cfg2 := map[string]interface{}{"ytdlpFlags": map[string]interface{}{"cookiesFromBrowser": "firefox"}}
+	// ensure existing map keeps values (section exists -> no changes)
+	cfg2 := map[string]interface{}{"ytdlpFlags": map[string]interface{}{"quiet": true}}
 	if ensureYtdlpDefaults(cfg2) {
-		t.Fatalf("did not expect changes when cookiesFromBrowser exists")
+		t.Fatalf("did not expect changes when ytdlpFlags section exists")
 	}
 }
 

@@ -1,6 +1,7 @@
 import React from "react";
 import PropTypes from "prop-types";
 import IconButton from "./IconButton.jsx";
+import { getProviderSettings } from "../api";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faBookmark } from "@fortawesome/free-regular-svg-icons";
 import { faLanguage } from "@fortawesome/free-solid-svg-icons";
@@ -17,8 +18,35 @@ export default function MediaInfoLane({
   // The 'error' prop was intentionally omitted from the params to avoid an unused-variable lint warning.
   const [showAlt, setShowAlt] = React.useState(false);
 
-  if (!media) return null;
+  // Fetch the provider URL on-demand (component-local state)
+  const [providerUrl, setProviderUrl] = React.useState("");
 
+  React.useEffect(() => {
+    let mounted = true;
+    // Fetch only the provider required for this mediaType and store it in providerUrl
+    if (mediaType === "movie") {
+      getProviderSettings("radarr")
+        .then((res) => {
+          if (mounted) setProviderUrl(res.url || "");
+        })
+        .catch(() => {
+          if (mounted) setProviderUrl("");
+        });
+    } else if (mediaType === "tv" || mediaType === "series") {
+      getProviderSettings("sonarr")
+        .then((res) => {
+          if (mounted) setProviderUrl(res.url || "");
+        })
+        .catch(() => {
+          if (mounted) setProviderUrl("");
+        });
+    }
+    return () => {
+      mounted = false;
+    };
+  }, [mediaType]);
+
+  if (!media) return null;
   let background;
   if (mediaType === "tv") {
     // Position background slightly below the top (around 30%) to show upper-to-middle of the fanart
@@ -41,7 +69,7 @@ export default function MediaInfoLane({
           alt={`${media?.title ?? "Media"} poster`}
           onError={(e) => {
             e.target.onerror = null;
-            e.target.src = "/logo.svg";
+            e.target.src = "/icons/logo.svg";
           }}
         />
       </div>
@@ -52,6 +80,7 @@ export default function MediaInfoLane({
             icon={<FontAwesomeIcon icon={faBookmark} color="#eee" />}
             disabled
           />
+          {/* provider buttons are rendered with the rating below */}
           <span className="media-info-title-group">
             <span>{media.title}</span>
             {(() => {
@@ -146,6 +175,71 @@ export default function MediaInfoLane({
         <div className="media-info-meta">
           {media.year} &bull; {media.path}
         </div>
+        {/* IMDb rating (if available) — emulate IMDb badge with CSS */}
+        {(() => {
+          // For series (tv) some items expose a top-level `ratings.value` instead of `ratings.imdb.value`.
+          // Use that when mediaType is 'tv' or 'series'; otherwise prefer `ratings.imdb.value`.
+          const isSeries = mediaType === "tv" || mediaType === "series";
+          const imdbRating = isSeries
+            ? media?.ratings?.value ?? media?.ratings?.imdb?.value
+            : media?.ratings?.imdb?.value ?? media?.ratings?.value;
+          if (!imdbRating) return null;
+          // Build provider buttons to appear beside the rating
+          const providerButtons = [];
+          if (mediaType === "movie" && providerUrl) {
+            providerButtons.push(
+              <IconButton
+                key="radarr"
+                icon={
+                  <img
+                    src="/icons/radarr.svg"
+                    alt="Radarr"
+                    className="media-info-provider-icon"
+                  />
+                }
+                onClick={() => {
+                  const base = providerUrl.replace(/\/$/, "");
+                  // Prefer titleSlug for provider links; fall back to id or title
+                  const movieSlug = media?.titleSlug ?? media?.id ?? media?.title ?? "";
+                  const url = `${base}/movie/${encodeURIComponent(movieSlug)}`;
+                  window.open(url, "_blank", "noopener");
+                }}
+                title="Open in Radarr"
+              />,
+            );
+          }
+          if ((mediaType === "tv" || mediaType === "series") && providerUrl) {
+            providerButtons.push(
+              <IconButton
+                key="sonarr"
+                icon={
+                  <img
+                    src="/icons/sonarr.svg"
+                    alt="Sonarr"
+                    className="media-info-provider-icon"
+                  />
+                }
+                onClick={() => {
+                  const base = providerUrl.replace(/\/$/, "");
+                  const seriesId = media?.titleSlug ?? media?.id ?? media?.title ?? "";
+                  const url = `${base}/series/${encodeURIComponent(seriesId)}`;
+                  window.open(url, "_blank", "noopener");
+                }}
+                title="Open in Sonarr"
+              />,
+            );
+          }
+
+          return (
+            <div className="media-info-rating" aria-label={`IMDb rating ${imdbRating}`}>
+              <img src="/icons/imdb.svg" alt="IMDb" className="media-info-imdb-img" />
+              <span className="media-info-rating-value">{imdbRating}</span>
+              {providerButtons.length > 0 && (
+                <div className="media-info-providers">{providerButtons}</div>
+              )}
+            </div>
+          );
+        })()}
         <div className="media-info-cast">
           <div className="media-info-spacer" />
           {castLoading && (
@@ -163,6 +257,7 @@ export default function MediaInfoLane({
             </div>
           )}
         </div>
+        {/* (imdb.log removed) */}
       </div>
     </div>
   );

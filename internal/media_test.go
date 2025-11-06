@@ -173,12 +173,12 @@ func TestFetchAndCachePosterAndCacheMediaPosters(t *testing.T) {
 	data, _ := json.Marshal(cfg)
 	// write as YAML-like simple file (the loader uses yaml.Unmarshal which accepts JSON)
 	os.WriteFile(cfgPath, data, 0644)
-	// override globals
+	// override globals (use SetConfigPath to update the atomic-backed path)
 	oldRoot := TrailarrRoot
-	oldCfg := ConfigPath
+	oldCfg := GetConfigPath()
 	TrailarrRoot = tmp
-	ConfigPath = cfgPath
-	defer func() { TrailarrRoot = oldRoot; ConfigPath = oldCfg }()
+	SetConfigPath(cfgPath)
+	defer func() { TrailarrRoot = oldRoot; SetConfigPath(oldCfg) }()
 
 	baseDir := filepath.Join(tmp, "covers")
 	idList := []map[string]interface{}{{"id": 123}}
