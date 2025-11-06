@@ -1,11 +1,17 @@
 package internal
 
 import (
+	"bytes"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -18,27 +24,34 @@ import (
 // runtime storage is bbolt (on-disk) with an in-memory fallback used for tests.
 
 const (
-	ApiReturnedStatusFmt     = "API returned status %d"
-	MoviesStoreKey           = "trailarr:movies"
-	SeriesStoreKey           = "trailarr:series"
-	MoviesWantedStoreKey     = "trailarr:movies:wanted"
-	SeriesWantedStoreKey     = "trailarr:series:wanted"
-	ExtrasStoreKey           = "trailarr:extras"
-	RejectedExtrasStoreKey   = "trailarr:extras:rejected"
-	DownloadQueue            = "trailarr:download_queue"
-	TaskTimesStoreKey        = "trailarr:task_times"
-	HealthIssuesStoreKey     = "trailarr:health_issues"
-	HistoryStoreKey          = "trailarr:history"
-	HistoryMaxLen            = 1000
-	TaskQueueStoreKey        = "trailarr:task_queue"
-	TaskQueueMaxLen          = 1000
-	RemoteMediaCoverPath     = "/MediaCover/"
+	ApiReturnedStatusFmt   = "API returned status %d"
+	MoviesStoreKey         = "trailarr:movies"
+	SeriesStoreKey         = "trailarr:series"
+	MoviesWantedStoreKey   = "trailarr:movies:wanted"
+	SeriesWantedStoreKey   = "trailarr:series:wanted"
+	ExtrasStoreKey         = "trailarr:extras"
+	RejectedExtrasStoreKey = "trailarr:extras:rejected"
+	DownloadQueue          = "trailarr:download_queue"
+	TaskTimesStoreKey      = "trailarr:task_times"
+	HealthIssuesStoreKey   = "trailarr:health_issues"
+	HistoryStoreKey        = "trailarr:history"
+	HistoryMaxLen          = 1000
+	TaskQueueStoreKey      = "trailarr:task_queue"
+	TaskQueueMaxLen        = 1000
+	RemoteMediaCoverPath   = "/MediaCover/"
+	// MediaCoverRoute is the HTTP route prefix used to serve media cover images
+	// from the server. Keep this constant in sync with routes that register the
+	// static handler so other packages can reference it without hardcoding.
+	MediaCoverRoute          = "/mediacover"
 	HeaderApiKey             = "X-Api-Key"
 	HeaderContentType        = "Content-Type"
 	ErrInvalidSonarrSettings = "Invalid Sonarr settings"
 	ErrInvalidRequest        = "invalid request"
 	ErrSectionNotMap         = "section %s is not a map"
 )
+
+// Default frontend URL used when no config or env override is provided.
+const DefaultFrontendURL = "http://localhost:8080"
 
 // NOTE: store keys are defined below as the primary constants (use these names).
 
@@ -51,12 +64,46 @@ var (
 	LogsDir        = TrailarrRoot + "/logs"
 )
 
+// configPathValue holds the current config path in an atomic.Value so tests
+// can call SetConfigPath concurrently without causing data races when
+// background goroutines read the path via GetConfigPath.
+var configPathValue atomic.Value
+
+// GetConfigPath returns the current path used for the config file. Tests
+// and callers may call SetConfigPath to inject an alternate path for
+// testing or runtime customization.
+func GetConfigPath() string {
+	// Prefer atomic-backed value when available to avoid races.
+	if v := configPathValue.Load(); v != nil {
+		if s, ok := v.(string); ok {
+			return s
+		}
+	}
+	return ConfigPath
+}
+
+// SetConfigPath sets the path used for configuration reads/writes. This is
+// a small, test-friendly hook that lets callers inject a per-test config
+// file without modifying other code sites directly.
+func SetConfigPath(p string) {
+	// Store atomically so concurrent readers (background goroutines/tests)
+	// don't race with writers. Also keep the plain ConfigPath variable in
+	// sync for compatibility with any code that still reads it directly.
+	configPathValue.Store(p)
+	ConfigPath = p
+}
+
+// Initialize atomic config path value at package init to the default
+func init() {
+	configPathValue.Store(ConfigPath)
+}
+
 // Global in-memory config
 var Config map[string]interface{}
 
 // LoadConfig reads config.yml into the global Config variable
 func LoadConfig() error {
-	data, err := os.ReadFile(ConfigPath)
+	data, err := os.ReadFile(GetConfigPath())
 	if err != nil {
 		return err
 	}
@@ -105,7 +152,7 @@ func GetCanonicalizeExtraTypeConfig() (CanonicalizeExtraTypeConfig, error) {
 	// overwritten between a test write and this read. To reduce flakiness,
 	// retry a few times when the mapping isn't present.
 	for attempt := 0; attempt < 5; attempt++ {
-		data, err := os.ReadFile(ConfigPath)
+		data, err := os.ReadFile(GetConfigPath())
 		if err != nil {
 			// If file read failed, retry briefly
 			time.Sleep(10 * time.Millisecond)
@@ -118,7 +165,7 @@ func GetCanonicalizeExtraTypeConfig() (CanonicalizeExtraTypeConfig, error) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	// Final fallback: attempt one last read and return whatever we have.
-	data, err := os.ReadFile(ConfigPath)
+	data, err := os.ReadFile(GetConfigPath())
 	if err != nil {
 		return CanonicalizeExtraTypeConfig{Mapping: map[string]string{}}, err
 	}
@@ -183,6 +230,10 @@ func DefaultGeneralConfig() map[string]interface{} {
 		"tmdbKey":            "",
 		"autoDownloadExtras": true,
 		"logLevel":           "Info",
+		// frontendUrl may be used by OAuth flows to build redirect targets;
+		// keep default pointing at the local dev frontend so devs don't need
+		// to set it explicitly.
+		"frontendUrl": DefaultFrontendURL,
 	}
 }
 
@@ -236,6 +287,9 @@ func EnsureConfigDefaults() error {
 	if ensureSonarrDefaults(config) {
 		changed = true
 	}
+	if ensurePlexDefaults(config) {
+		changed = true
+	}
 	if ensureExtraTypesDefaults(config) {
 		changed = true
 	}
@@ -275,16 +329,13 @@ func ensureYtdlpDefaults(config map[string]interface{}) bool {
 		config["ytdlpFlags"] = DefaultYtdlpFlagsConfig()
 		return true
 	}
-	ytdlpFlags, ok := config["ytdlpFlags"].(map[string]interface{})
+	_, ok := config["ytdlpFlags"].(map[string]interface{})
 	if !ok {
 		config["ytdlpFlags"] = DefaultYtdlpFlagsConfig()
 		return true
 	}
-	if _, ok := ytdlpFlags["cookiesFromBrowser"]; !ok {
-		ytdlpFlags["cookiesFromBrowser"] = "chrome"
-		config["ytdlpFlags"] = ytdlpFlags
-		return true
-	}
+	// If the section exists and is a map we don't inject any legacy keys.
+	// Tests that need per-test config create their own files.
 	return false
 }
 
@@ -352,6 +403,53 @@ func ensureSonarrDefaults(config map[string]interface{}) bool {
 	return changed
 }
 
+func ensurePlexDefaults(config map[string]interface{}) bool {
+	defaultConfig := map[string]interface{}{
+		"protocol": "http",
+		"ip":       "localhost",
+		"port":     32400,
+		"token":    "",
+		"clientId": "",
+		"enabled":  false,
+	}
+	if config["plex"] == nil {
+		config["plex"] = defaultConfig
+		return true
+	}
+	plex, ok := config["plex"].(map[string]interface{})
+	if !ok {
+		config["plex"] = defaultConfig
+		return true
+	}
+	changed := false
+	if _, ok := plex["protocol"]; !ok {
+		plex["protocol"] = defaultConfig["protocol"]
+		changed = true
+	}
+	if _, ok := plex["ip"]; !ok {
+		plex["ip"] = defaultConfig["ip"]
+		changed = true
+	}
+	if _, ok := plex["port"]; !ok {
+		plex["port"] = defaultConfig["port"]
+		changed = true
+	}
+	if _, ok := plex["token"]; !ok {
+		plex["token"] = defaultConfig["token"]
+		changed = true
+	}
+	if _, ok := plex["clientId"]; !ok {
+		plex["clientId"] = defaultConfig["clientId"]
+		changed = true
+	}
+	if _, ok := plex["enabled"]; !ok {
+		plex["enabled"] = defaultConfig["enabled"]
+		changed = true
+	}
+	config["plex"] = plex
+	return changed
+}
+
 func ensureExtraTypesDefaults(config map[string]interface{}) bool {
 	if config["extraTypes"] == nil {
 		config["extraTypes"] = map[string]interface{}{
@@ -412,26 +510,37 @@ func ensureCanonicalizeExtraTypeDefaults(config map[string]interface{}) bool {
 
 // Raw config file reader (no defaults)
 func readConfigFileRaw() (map[string]interface{}, error) {
-	data, err := os.ReadFile(ConfigPath)
+	data, err := os.ReadFile(GetConfigPath())
 	if err != nil {
 		return nil, err
 	}
-	var config map[string]interface{}
 	if len(data) == 0 {
 		// Treat empty file as missing config
 		return nil, fmt.Errorf("empty config file")
 	}
-	err = yamlv3.Unmarshal(data, &config)
-	if err != nil {
+	// Unmarshal into an empty interface then normalize to ensure any
+	// map[interface{}]interface{} values produced by the YAML decoder are
+	// converted into map[string]interface{} so callers can reliably index
+	// using string keys.
+	var raw interface{}
+	if err := yamlv3.Unmarshal(data, &raw); err != nil {
 		return nil, err
 	}
-	return config, nil
+	normalized := normalizeYAML(raw)
+	if normalized == nil {
+		return nil, fmt.Errorf("invalid config format")
+	}
+	cfg, ok := normalized.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("config is not a map")
+	}
+	return cfg, nil
 }
 
 // Helper to read config file and unmarshal into map[string]interface{}
 func readConfigFile() (map[string]interface{}, error) {
 	_ = EnsureConfigDefaults()
-	data, err := os.ReadFile(ConfigPath)
+	data, err := os.ReadFile(GetConfigPath())
 	if err != nil {
 		return nil, err
 	}
@@ -440,23 +549,56 @@ func readConfigFile() (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	return config, nil
+	// Normalize YAML maps to ensure keys are strings and nested maps are
+	// represented as map[string]interface{}. This avoids callers having to
+	// handle map[interface{}]interface{} returned by the YAML decoder.
+	if config != nil {
+		normalized := normalizeYAML(config)
+		if cfgMap, ok := normalized.(map[string]interface{}); ok {
+			return cfgMap, nil
+		}
+	}
+	return map[string]interface{}{}, nil
 }
 
 // Helper to write config map to file
 func writeConfigFile(config map[string]interface{}) error {
-	out, err := yamlv3.Marshal(config)
-	if err != nil {
-		return err
-	}
 	// Ensure parent directory exists to avoid errors when background
 	// goroutines attempt to persist merged settings and the temp test
 	// environment's config dir hasn't been created or was removed.
-	dir := filepath.Dir(ConfigPath)
+	dir := filepath.Dir(GetConfigPath())
 	if dir != "" {
 		_ = os.MkdirAll(dir, 0755)
 	}
-	return os.WriteFile(ConfigPath, out, 0644)
+
+	// Read existing file and merge top-level keys so concurrent writers
+	// that only update subsets of the config don't inadvertently wipe
+	// keys written by other goroutines. New values in `config` take
+	// precedence; missing keys are preserved from disk.
+	existing := map[string]interface{}{}
+	if data, err := os.ReadFile(GetConfigPath()); err == nil {
+		var onDisk map[string]interface{}
+		if err := yamlv3.Unmarshal(data, &onDisk); err == nil {
+			existing = normalizeYAML(onDisk).(map[string]interface{})
+		}
+	}
+	for k, v := range config {
+		existing[k] = v
+	}
+
+	out, err := yamlv3.Marshal(existing)
+	if err != nil {
+		return err
+	}
+
+	// Write atomically via temp file + rename to avoid partial writes.
+	// Use a unique temp filename to avoid collisions with other writers
+	// (tests and background goroutines may create their own temp files).
+	tmp := fmt.Sprintf("%s.%d.tmp", GetConfigPath(), time.Now().UnixNano())
+	if err := os.WriteFile(tmp, out, 0644); err != nil {
+		return err
+	}
+	return os.Rename(tmp, GetConfigPath())
 }
 
 // EnsureYtdlpFlagsConfigExists checks config.yml and writes defaults if missing
@@ -485,7 +627,7 @@ func GetYtdlpFlagsConfig() (YtdlpFlagsConfig, error) {
 	// 'ytdlpFlags' section is not present to avoid flakiness.
 	cfg := DefaultYtdlpFlagsConfig()
 	for attempt := 0; attempt < 20; attempt++ {
-		data, err := os.ReadFile(ConfigPath)
+		data, err := os.ReadFile(GetConfigPath())
 		if err != nil {
 			// If read failed, retry briefly
 			time.Sleep(20 * time.Millisecond)
@@ -608,20 +750,19 @@ func ytdlpFlagSetters(cfg *YtdlpFlagsConfig) map[string]func(interface{}) {
 	}
 
 	return map[string]func(interface{}){
-		"quiet":              boolSetter(&cfg.Quiet),
-		"noprogress":         boolSetter(&cfg.NoProgress),
-		"cookiesFromBrowser": stringSetter(&cfg.CookiesFromBrowser),
-		"writesubs":          boolSetter(&cfg.WriteSubs),
-		"writeautosubs":      boolSetter(&cfg.WriteAutoSubs),
-		"embedsubs":          boolSetter(&cfg.EmbedSubs),
-		"sublangs":           stringSetter(&cfg.SubLangs),
-		"requestedformats":   stringSetter(&cfg.RequestedFormats),
-		"timeout":            floatSetter(&cfg.Timeout),
-		"sleepInterval":      floatSetter(&cfg.SleepInterval),
-		"maxDownloads":       intSetter(&cfg.MaxDownloads),
-		"limitRate":          stringSetter(&cfg.LimitRate),
-		"sleepRequests":      floatSetter(&cfg.SleepRequests),
-		"maxSleepInterval":   floatSetter(&cfg.MaxSleepInterval),
+		"quiet":            boolSetter(&cfg.Quiet),
+		"noprogress":       boolSetter(&cfg.NoProgress),
+		"writesubs":        boolSetter(&cfg.WriteSubs),
+		"writeautosubs":    boolSetter(&cfg.WriteAutoSubs),
+		"embedsubs":        boolSetter(&cfg.EmbedSubs),
+		"sublangs":         stringSetter(&cfg.SubLangs),
+		"requestedformats": stringSetter(&cfg.RequestedFormats),
+		"timeout":          floatSetter(&cfg.Timeout),
+		"sleepInterval":    floatSetter(&cfg.SleepInterval),
+		"maxDownloads":     intSetter(&cfg.MaxDownloads),
+		"limitRate":        stringSetter(&cfg.LimitRate),
+		"sleepRequests":    floatSetter(&cfg.SleepRequests),
+		"maxSleepInterval": floatSetter(&cfg.MaxSleepInterval),
 	}
 }
 
@@ -632,20 +773,19 @@ func SaveYtdlpFlagsConfig(cfg YtdlpFlagsConfig) error {
 		config = map[string]interface{}{}
 	}
 	config["ytdlpFlags"] = map[string]interface{}{
-		"quiet":              cfg.Quiet,
-		"noprogress":         cfg.NoProgress,
-		"writesubs":          cfg.WriteSubs,
-		"writeautosubs":      cfg.WriteAutoSubs,
-		"embedsubs":          cfg.EmbedSubs,
-		"sublangs":           cfg.SubLangs,
-		"requestedformats":   cfg.RequestedFormats,
-		"timeout":            cfg.Timeout,
-		"sleepInterval":      cfg.SleepInterval,
-		"maxDownloads":       cfg.MaxDownloads,
-		"limitRate":          cfg.LimitRate,
-		"sleepRequests":      cfg.SleepRequests,
-		"maxSleepInterval":   cfg.MaxSleepInterval,
-		"cookiesFromBrowser": cfg.CookiesFromBrowser,
+		"quiet":            cfg.Quiet,
+		"noprogress":       cfg.NoProgress,
+		"writesubs":        cfg.WriteSubs,
+		"writeautosubs":    cfg.WriteAutoSubs,
+		"embedsubs":        cfg.EmbedSubs,
+		"sublangs":         cfg.SubLangs,
+		"requestedformats": cfg.RequestedFormats,
+		"timeout":          cfg.Timeout,
+		"sleepInterval":    cfg.SleepInterval,
+		"maxDownloads":     cfg.MaxDownloads,
+		"limitRate":        cfg.LimitRate,
+		"sleepRequests":    cfg.SleepRequests,
+		"maxSleepInterval": cfg.MaxSleepInterval,
 	}
 	return writeConfigFile(config)
 }
@@ -675,6 +815,16 @@ func SaveYtdlpFlagsConfigHandler(c *gin.Context) {
 }
 
 var Timings map[string]int
+
+// PlexConfig holds Plex server connection settings
+type PlexConfig struct {
+	Protocol string `yaml:"protocol" json:"protocol"`
+	IP       string `yaml:"ip" json:"ip"`
+	Port     int    `yaml:"port" json:"port"`
+	Token    string `yaml:"token" json:"token"`
+	ClientId string `yaml:"clientId" json:"clientId"`
+	Enabled  bool   `yaml:"enabled" json:"enabled"`
+}
 
 // ExtraTypesConfig holds config for enabling/disabling specific extra types
 type ExtraTypesConfig struct {
@@ -805,12 +955,12 @@ func EnsureSyncTimingsConfig() (map[string]int, error) {
 	}
 
 	// If the file doesn't exist create it with defaults
-	if _, err := os.Stat(ConfigPath); os.IsNotExist(err) {
+	if _, err := os.Stat(GetConfigPath()); os.IsNotExist(err) {
 		return createConfigWithTimings(defaultTimings)
 	}
 
 	// Load existing config
-	data, err := os.ReadFile(ConfigPath)
+	data, err := os.ReadFile(GetConfigPath())
 	if err != nil {
 		return defaultTimings, err
 	}
@@ -833,7 +983,7 @@ func EnsureSyncTimingsConfig() (map[string]int, error) {
 		cfg["syncTimings"] = timings
 		out, err := yamlv3.Marshal(cfg)
 		if err == nil {
-			_ = os.WriteFile(ConfigPath, out, 0644)
+			_ = os.WriteFile(GetConfigPath(), out, 0644)
 		}
 	}
 
@@ -844,7 +994,7 @@ func EnsureSyncTimingsConfig() (map[string]int, error) {
 		cfg["syncTimings"] = timings
 		out, err := yamlv3.Marshal(cfg)
 		if err == nil {
-			_ = os.WriteFile(ConfigPath, out, 0644)
+			_ = os.WriteFile(GetConfigPath(), out, 0644)
 		}
 	}
 
@@ -863,7 +1013,7 @@ func createConfigWithTimings(timings map[string]int) (map[string]int, error) {
 	if err := os.MkdirAll(TrailarrRoot+"/config", 0775); err != nil {
 		return timings, err
 	}
-	if err := os.WriteFile(ConfigPath, out, 0644); err != nil {
+	if err := os.WriteFile(GetConfigPath(), out, 0644); err != nil {
 		return timings, err
 	}
 	return timings, nil
@@ -877,7 +1027,7 @@ func writeSyncTimingsToConfig(cfg map[string]interface{}, timings map[string]int
 	if err != nil {
 		return err
 	}
-	_ = os.WriteFile(ConfigPath, out, 0644)
+	_ = os.WriteFile(GetConfigPath(), out, 0644)
 	return nil
 }
 
@@ -915,7 +1065,7 @@ func convertTimings(timings map[string]interface{}) map[string]int {
 
 // Loads settings for a given section ("radarr" or "sonarr")
 func loadMediaSettings(section string) (MediaSettings, error) {
-	data, err := os.ReadFile(ConfigPath)
+	data, err := os.ReadFile(GetConfigPath())
 	if err != nil {
 		TrailarrLog(WARN, "Settings", "settings not found: %v", err)
 		return MediaSettings{}, fmt.Errorf("settings not found: %w", err)
@@ -953,7 +1103,7 @@ func GetPathMappings(mediaType MediaType) ([][]string, error) {
 	if mediaType == MediaTypeTV {
 		section = "sonarr"
 	}
-	data, err := os.ReadFile(ConfigPath)
+	data, err := os.ReadFile(GetConfigPath())
 	if err != nil {
 		return nil, err
 	}
@@ -994,7 +1144,7 @@ func extractPathMappings(sec map[string]interface{}) [][]string {
 // Returns a Gin handler for settings (url, apiKey, pathMappings) for a given section ("radarr" or "sonarr")
 // Returns url and apiKey for a given section (radarr/sonarr) from config.yml
 func GetProviderUrlAndApiKey(provider string) (string, string, error) {
-	data, err := os.ReadFile(ConfigPath)
+	data, err := os.ReadFile(GetConfigPath())
 	if err != nil {
 		return "", "", err
 	}
@@ -1042,7 +1192,7 @@ func GetProviderUrlAndApiKey(provider string) (string, string, error) {
 
 func GetSettingsHandler(section string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		data, err := os.ReadFile(ConfigPath)
+		data, err := os.ReadFile(GetConfigPath())
 		if err != nil {
 			respondJSON(c, http.StatusOK, gin.H{"providerURL": "", "apiKey": ""})
 			return
@@ -1231,20 +1381,21 @@ func triggerHealthcheckTaskAsync() {
 }
 
 func getGeneralSettingsHandler(c *gin.Context) {
-	data, err := os.ReadFile(ConfigPath)
+	data, err := os.ReadFile(GetConfigPath())
 	if err != nil {
-		respondJSON(c, http.StatusOK, gin.H{"tmdbKey": "", "autoDownloadExtras": true})
+		respondJSON(c, http.StatusOK, gin.H{"tmdbKey": "", "autoDownloadExtras": true, "frontendUrl": DefaultFrontendURL})
 		return
 	}
 	var config map[string]interface{}
 	if err := yamlv3.Unmarshal(data, &config); err != nil {
-		respondJSON(c, http.StatusOK, gin.H{"tmdbKey": "", "autoDownloadExtras": true})
+		respondJSON(c, http.StatusOK, gin.H{"tmdbKey": "", "autoDownloadExtras": true, "frontendUrl": DefaultFrontendURL})
 		return
 	}
 	config = normalizeYAML(config).(map[string]interface{})
 	var tmdbKey string
 	var autoDownloadExtras bool = true
 	var logLevel string = "Info"
+	var frontendUrl string = DefaultFrontendURL
 	if general, ok := config["general"].(map[string]interface{}); ok {
 		if v, ok := general["tmdbKey"].(string); ok {
 			tmdbKey = v
@@ -1255,8 +1406,11 @@ func getGeneralSettingsHandler(c *gin.Context) {
 		if v, ok := general["logLevel"].(string); ok {
 			logLevel = v
 		}
+		if v, ok := general["frontendUrl"].(string); ok && v != "" {
+			frontendUrl = strings.TrimRight(v, "/")
+		}
 	}
-	respondJSON(c, http.StatusOK, gin.H{"tmdbKey": tmdbKey, "autoDownloadExtras": autoDownloadExtras, "logLevel": logLevel})
+	respondJSON(c, http.StatusOK, gin.H{"tmdbKey": tmdbKey, "autoDownloadExtras": autoDownloadExtras, "logLevel": logLevel, "frontendUrl": frontendUrl})
 }
 
 func saveGeneralSettingsHandler(c *gin.Context) {
@@ -1264,11 +1418,27 @@ func saveGeneralSettingsHandler(c *gin.Context) {
 		TMDBApiKey         string `json:"tmdbKey" yaml:"tmdbKey"`
 		AutoDownloadExtras *bool  `json:"autoDownloadExtras" yaml:"autoDownloadExtras"`
 		LogLevel           string `json:"logLevel" yaml:"logLevel"`
+		FrontendUrl        string `json:"frontendUrl" yaml:"frontendUrl"`
 	}
-	if err := c.BindJSON(&req); err != nil {
+	// Read and decode JSON manually to avoid issues where Gin's BindJSON
+	// may behave unexpectedly in some test environments. We still accept
+	// the same field names (tmdbKey, autoDownloadExtras, logLevel).
+	raw, err := io.ReadAll(c.Request.Body)
+	if err != nil {
 		respondError(c, http.StatusBadRequest, ErrInvalidRequest)
 		return
 	}
+	// Restore Body for potential downstream readers
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(raw))
+	if len(raw) == 0 {
+		respondError(c, http.StatusBadRequest, ErrInvalidRequest)
+		return
+	}
+	if err := json.Unmarshal(raw, &req); err != nil {
+		respondError(c, http.StatusBadRequest, ErrInvalidRequest)
+		return
+	}
+	// (no-op) proceed to save parsed request
 	// Debug logging to help diagnose CI failure where tmdbKey is not persisted.
 	TrailarrLog(DEBUG, "Settings", "saveGeneralSettingsHandler parsed request: tmdbKey=%s autoDownloadExtras=%v logLevel=%s", req.TMDBApiKey, req.AutoDownloadExtras, req.LogLevel)
 	// Read existing settings as map[string]interface{} to preserve all keys
@@ -1299,6 +1469,10 @@ func saveGeneralSettingsHandler(c *gin.Context) {
 	if req.LogLevel != "" {
 		general["logLevel"] = req.LogLevel
 	}
+	// Save frontendUrl if provided. Trim any trailing slash before persisting.
+	if req.FrontendUrl != "" {
+		general["frontendUrl"] = strings.TrimRight(req.FrontendUrl, "/")
+	}
 	config["general"] = general
 	err = writeConfigFile(config)
 	if err != nil {
@@ -1306,14 +1480,407 @@ func saveGeneralSettingsHandler(c *gin.Context) {
 		return
 	}
 
-	// Re-read the config from disk and update in-memory Config to reduce
-	// races where other background writers may interleave. This ensures the
-	// immediate read after this handler sees the persisted values.
-	if cfgMap, rerr := readConfigFile(); rerr == nil {
-		Config = cfgMap
-	}
+	// Update in-memory config to reflect the values we just saved. Avoid
+	// blindly re-reading from disk here because background goroutines may
+	// concurrently modify the file and overwrite our changes; keeping the
+	// in-memory representation consistent with the successful write ensures
+	// immediate reads by other handlers return the values the client saved.
+	Config = config
 
 	respondJSON(c, http.StatusOK, gin.H{"status": "saved"})
+}
+
+// GetPlexConfig loads Plex config from config.yml
+func GetPlexConfig() (PlexConfig, error) {
+	data, err := os.ReadFile(GetConfigPath())
+	if err != nil {
+		TrailarrLog(WARN, "Settings", "Plex settings not found: %v", err)
+		return PlexConfig{}, fmt.Errorf("settings not found: %w", err)
+	}
+	var allSettings map[string]interface{}
+	if err := yamlv3.Unmarshal(data, &allSettings); err != nil {
+		TrailarrLog(WARN, "Settings", "invalid settings: %v", err)
+		return PlexConfig{}, fmt.Errorf("invalid settings: %w", err)
+	}
+	allSettings = normalizeYAML(allSettings).(map[string]interface{})
+	secRaw, ok := allSettings["plex"]
+	if !ok {
+		TrailarrLog(WARN, "Settings", "plex section not found")
+		return PlexConfig{}, fmt.Errorf("plex section not found")
+	}
+	sec, ok := secRaw.(map[string]interface{})
+	if !ok {
+		TrailarrLog(WARN, "Settings", ErrSectionNotMap, "plex")
+		return PlexConfig{}, fmt.Errorf(ErrSectionNotMap, "plex")
+	}
+	cfg := PlexConfig{}
+	if v, ok := sec["protocol"].(string); ok {
+		cfg.Protocol = v
+	}
+	if v, ok := sec["ip"].(string); ok {
+		cfg.IP = v
+	}
+	if v, ok := sec["port"]; ok {
+		switch t := v.(type) {
+		case float64:
+			cfg.Port = int(t)
+		case int:
+			cfg.Port = t
+		case int64:
+			cfg.Port = int(t)
+		}
+	}
+	if v, ok := sec["token"].(string); ok {
+		cfg.Token = v
+	}
+	if v, ok := sec["clientId"].(string); ok {
+		cfg.ClientId = v
+	}
+	if v, ok := sec["enabled"].(bool); ok {
+		cfg.Enabled = v
+	}
+	return cfg, nil
+}
+
+// SavePlexConfig saves Plex config to config.yml
+func SavePlexConfig(cfg PlexConfig) error {
+	config, err := readConfigFile()
+	if err != nil {
+		config = map[string]interface{}{}
+	}
+
+	// Preserve existing token if the incoming cfg.Token is empty. This
+	// prevents unintentionally deleting a stored token when the frontend
+	// saves other Plex settings without returning the token value.
+	existingToken := ""
+	if secRaw, ok := config["plex"]; ok {
+		switch sec := secRaw.(type) {
+		case map[string]interface{}:
+			if t, ok := sec["token"].(string); ok {
+				existingToken = t
+			}
+		default:
+			// Defensive: log unexpected type for debugging in tests
+			TrailarrLog(DEBUG, "Settings", "SavePlexConfig: unexpected plex section type: %T", secRaw)
+		}
+	}
+	tokenToSave := cfg.Token
+	if tokenToSave == "" {
+		tokenToSave = existingToken
+	}
+
+	// Preserve existing clientId if incoming cfg.ClientId is empty. This
+	// prevents overwriting a generated clientId with an empty value when the
+	// frontend doesn't include it in the payload.
+	existingClientId := ""
+	if sec, ok := config["plex"].(map[string]interface{}); ok {
+		if c, ok := sec["clientId"].(string); ok {
+			existingClientId = c
+		}
+	}
+	clientIdToSave := cfg.ClientId
+	if clientIdToSave == "" {
+		clientIdToSave = existingClientId
+	}
+
+	config["plex"] = map[string]interface{}{
+		"protocol": cfg.Protocol,
+		"ip":       cfg.IP,
+		"port":     cfg.Port,
+		"token":    tokenToSave,
+		"clientId": clientIdToSave,
+		"enabled":  cfg.Enabled,
+	}
+	return writeConfigFile(config)
+}
+
+// Handler to get Plex config
+func GetPlexConfigHandler(c *gin.Context) {
+	cfg, err := GetPlexConfig()
+	if err != nil {
+		// Return defaults on error
+		respondJSON(c, http.StatusOK, PlexConfig{
+			Protocol: "http",
+			IP:       "localhost",
+			Port:     32400,
+			Enabled:  false,
+		})
+		return
+	}
+	// Don't expose token in response for security
+	cfg.Token = ""
+	respondJSON(c, http.StatusOK, cfg)
+}
+
+// Handler to save Plex config
+func SavePlexConfigHandler(c *gin.Context) {
+	var req PlexConfig
+	if err := c.BindJSON(&req); err != nil {
+		respondError(c, http.StatusBadRequest, ErrInvalidRequest)
+		return
+	}
+	if err := SavePlexConfig(req); err != nil {
+		respondError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	respondJSON(c, http.StatusOK, gin.H{"status": "saved"})
+}
+
+// GenerateUUID generates a random UUID-like string (16 hex bytes = 32 chars)
+func generateUUID() string {
+	b := make([]byte, 16)
+	_, err := rand.Read(b)
+	if err != nil {
+		// Fallback: generate a simple timestamp-based UUID if rand fails
+		return fmt.Sprintf("%x-%x-%x-%x-%x", time.Now().UnixNano()&0xFFFFFFFF, time.Now().UnixNano()>>32&0xFFFF, time.Now().UnixNano()>>48&0xFFFF, time.Now().UnixNano()&0xFFFFFFFF, time.Now().UnixNano())
+	}
+	return hex.EncodeToString(b)
+}
+
+// PlexOAuthHeaders returns standard Plex OAuth headers
+func plexOAuthHeaders(clientID string) map[string]string {
+	return map[string]string{
+		"Accept":                   "application/json",
+		"X-Plex-Client-Identifier": clientID,
+		"X-Plex-Product":           "Trailarr",
+		"X-Plex-Version":           "1.0",
+		"X-Plex-Platform":          "Linux",
+		"X-Plex-Platform-Version":  "1.0",
+		"X-Plex-Device":            "Server",
+		"X-Plex-Device-Name":       "Trailarr",
+		"X-Plex-Model":             "Plex OAuth",
+		"Content-Type":             "application/json",
+	}
+}
+
+// EnsurePlexClientID generates and stores a client ID if one doesn't exist
+func EnsurePlexClientID() (string, error) {
+	cfg, err := GetPlexConfig()
+	if err != nil {
+		// If config doesn't exist, create defaults
+		cfg = PlexConfig{
+			Protocol: "http",
+			IP:       "localhost",
+			Port:     32400,
+			Enabled:  false,
+		}
+	}
+
+	// If clientId exists and is not empty, return it
+	if cfg.ClientId != "" {
+		return cfg.ClientId, nil
+	}
+
+	// Generate new clientId
+	cfg.ClientId = generateUUID()
+
+	// Save updated config
+	if err := SavePlexConfig(cfg); err != nil {
+		TrailarrLog(ERROR, "Settings", "Failed to save Plex clientId: %v", err)
+		return cfg.ClientId, err
+	}
+
+	TrailarrLog(INFO, "Settings", "Generated new Plex clientId: %s", cfg.ClientId)
+	return cfg.ClientId, nil
+}
+
+// PlexOAuthResponse holds the OAuth flow information
+type PlexOAuthResponse struct {
+	LoginURL string `json:"loginUrl"`
+	PinID    int64  `json:"pinId"`
+	ClientID string `json:"clientId"`
+	Code     string `json:"code"`
+}
+
+// GetPlexOAuthLoginURL initiates Plex OAuth device flow and returns login URL
+func GetPlexOAuthLoginURL() (PlexOAuthResponse, error) {
+	clientID, err := EnsurePlexClientID()
+	if err != nil {
+		TrailarrLog(ERROR, "Settings", "Failed to get/generate clientId: %v", err)
+		return PlexOAuthResponse{}, err
+	}
+
+	// Request a PIN from Plex API
+	pinReqBody := map[string]interface{}{
+		"strong": true,
+	}
+	pinReqBodyJSON, _ := json.Marshal(pinReqBody)
+
+	req, err := http.NewRequest("POST", "https://plex.tv/api/v2/pins", bytes.NewReader(pinReqBodyJSON))
+	if err != nil {
+		return PlexOAuthResponse{}, err
+	}
+
+	// Set headers
+	headers := plexOAuthHeaders(clientID)
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		TrailarrLog(ERROR, "Settings", "Failed to request Plex PIN: %v", err)
+		return PlexOAuthResponse{}, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 201 {
+		TrailarrLog(WARN, "Settings", "Plex API returned status %d", resp.StatusCode)
+		return PlexOAuthResponse{}, fmt.Errorf("plex API returned status %d", resp.StatusCode)
+	}
+
+	var pinResp struct {
+		ID   int64  `json:"id"`
+		Code string `json:"code"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&pinResp); err != nil {
+		TrailarrLog(ERROR, "Settings", "Failed to decode Plex PIN response: %v", err)
+		return PlexOAuthResponse{}, err
+	}
+
+	// Build login URL with context params.
+	// Prefer a configured value in config.yml (general.frontendUrl). If
+	// not present, fall back to the FRONTEND_URL environment variable. If
+	// neither is set, use the local dev server default.
+	frontend := ""
+	if cfg, err := readConfigFile(); err == nil {
+		if gen, ok := cfg["general"].(map[string]interface{}); ok {
+			if v, ok := gen["frontendUrl"].(string); ok && v != "" {
+				frontend = v
+			}
+		}
+	}
+	if frontend == "" {
+		frontend = os.Getenv("FRONTEND_URL")
+	}
+	if frontend == "" {
+		frontend = DefaultFrontendURL
+	}
+	forwardUrl := fmt.Sprintf("%s/settings/plex", strings.TrimRight(frontend, "/"))
+
+	loginURL := fmt.Sprintf(
+		"https://app.plex.tv/auth/#!?clientID=%s&code=%s&forwardUrl=%s",
+		clientID,
+		pinResp.Code,
+		forwardUrl,
+	)
+
+	TrailarrLog(INFO, "Settings", "Generated Plex OAuth login URL with code: %s", pinResp.Code)
+
+	return PlexOAuthResponse{
+		LoginURL: loginURL,
+		PinID:    pinResp.ID,
+		ClientID: clientID,
+		Code:     pinResp.Code,
+	}, nil
+}
+
+// ExchangePlexCodeForToken exchanges Plex OAuth code for auth token
+func ExchangePlexCodeForToken(code string, pinID int64) (string, error) {
+	clientID, err := EnsurePlexClientID()
+	if err != nil {
+		return "", err
+	}
+
+	// Poll Plex API to check if user authorized the PIN
+	req, err := http.NewRequest("GET", fmt.Sprintf("https://plex.tv/api/v2/pins/%d", pinID), nil)
+	if err != nil {
+		return "", err
+	}
+
+	// Set headers
+	headers := plexOAuthHeaders(clientID)
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		TrailarrLog(ERROR, "Settings", "Failed to check PIN authorization: %v", err)
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		TrailarrLog(WARN, "Settings", "Plex PIN check returned status %d", resp.StatusCode)
+		return "", fmt.Errorf("plex PIN check returned status %d", resp.StatusCode)
+	}
+
+	var pinCheckResp struct {
+		AuthToken string `json:"authToken"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&pinCheckResp); err != nil {
+		TrailarrLog(ERROR, "Settings", "Failed to decode PIN check response: %v", err)
+		return "", err
+	}
+
+	if pinCheckResp.AuthToken == "" {
+		return "", fmt.Errorf("user has not authorized the request yet")
+	}
+
+	// Save token to Plex config
+	// Ensure a clientId is present and persisted before saving the token.
+	// This guarantees clientId is recorded in config.yml even if the
+	// initial device flow step failed to persist it earlier.
+	if _, cerr := EnsurePlexClientID(); cerr != nil {
+		TrailarrLog(WARN, "Settings", "Failed to ensure Plex clientId before saving token: %v", cerr)
+	}
+
+	cfg, _ := GetPlexConfig()
+	// Make sure cfg.ClientId contains the current clientID
+	if cfg.ClientId == "" && clientID != "" {
+		cfg.ClientId = clientID
+	}
+	cfg.Token = pinCheckResp.AuthToken
+	if err := SavePlexConfig(cfg); err != nil {
+		TrailarrLog(ERROR, "Settings", "Failed to save Plex auth token: %v", err)
+		return "", err
+	}
+
+	TrailarrLog(INFO, "Settings", "Successfully obtained Plex auth token")
+	return pinCheckResp.AuthToken, nil
+}
+
+// GetPlexOAuthLoginHandler handles GET /api/plex/login - initiates OAuth flow
+func GetPlexOAuthLoginHandler(c *gin.Context) {
+	oauthResp, err := GetPlexOAuthLoginURL()
+	if err != nil {
+		TrailarrLog(ERROR, "Settings", "Failed to get Plex OAuth login URL: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, oauthResp)
+}
+
+// ExchangePlexCodeHandler handles POST /api/plex/exchange - exchanges code for token
+func ExchangePlexCodeHandler(c *gin.Context) {
+	var req struct {
+		Code  string `json:"code" binding:"required"`
+		PinID int64  `json:"pinId" binding:"required"`
+	}
+
+	if err := c.BindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing code or pinId"})
+		return
+	}
+
+	token, err := ExchangePlexCodeForToken(req.Code, req.PinID)
+	if err != nil {
+		TrailarrLog(ERROR, "Settings", "Failed to exchange Plex code for token: %v", err)
+		// If the user has not yet authorized the PIN, return 202 Accepted
+		// so the frontend can poll until authorization completes instead of
+		// treating the condition as an internal server error.
+		if strings.Contains(strings.ToLower(err.Error()), "not authorized") || strings.Contains(strings.ToLower(err.Error()), "has not authorized") {
+			c.JSON(http.StatusAccepted, gin.H{"status": "pending", "message": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"token": token})
 }
 
 // Fetch root folders from Radarr or Sonarr API

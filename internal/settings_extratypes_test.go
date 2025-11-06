@@ -11,10 +11,10 @@ func TestGetExtraTypesConfigReadsFromDiskWhenConfigNil(t *testing.T) {
 	tmp := t.TempDir()
 	// point trails root and config path to temp dir
 	oldRoot := TrailarrRoot
-	oldConfigPath := ConfigPath
+	oldConfigPath := GetConfigPath()
 	defer func() {
 		TrailarrRoot = oldRoot
-		ConfigPath = oldConfigPath
+		SetConfigPath(oldConfigPath)
 	}()
 	TrailarrRoot = tmp
 	// ensure config dir exists
@@ -22,7 +22,7 @@ func TestGetExtraTypesConfigReadsFromDiskWhenConfigNil(t *testing.T) {
 	if err := os.MkdirAll(cfgDir, 0755); err != nil {
 		t.Fatalf("failed to create config dir: %v", err)
 	}
-	ConfigPath = filepath.Join(cfgDir, "config.yml")
+	SetConfigPath(filepath.Join(cfgDir, "config.yml"))
 
 	// write a config file with extraTypes disabling trailers
 	content := []byte("extraTypes:\n  trailers: false\n  scenes: true\n")

@@ -11,9 +11,9 @@ import (
 
 func TestFetchProviderItemsFailureNoConfig(t *testing.T) {
 	// ensure ConfigPath points to non-existent file
-	old := ConfigPath
-	ConfigPath = filepath.Join(t.TempDir(), "nope.yml")
-	defer func() { ConfigPath = old }()
+	old := GetConfigPath()
+	SetConfigPath(filepath.Join(t.TempDir(), "nope.yml"))
+	defer func() { SetConfigPath(old) }()
 
 	if _, err := fetchProviderItems("radarr", "/api/v3/movie"); err == nil {
 		t.Fatalf("expected error when provider config missing")
@@ -36,9 +36,9 @@ func TestFetchProviderItemsSuccess(t *testing.T) {
 	data, _ := json.Marshal(cfg)
 	_ = os.WriteFile(cfgPath, data, 0644)
 
-	old := ConfigPath
-	ConfigPath = cfgPath
-	defer func() { ConfigPath = old }()
+	old := GetConfigPath()
+	SetConfigPath(cfgPath)
+	defer func() { SetConfigPath(old) }()
 
 	items, err := fetchProviderItems("radarr", "/api/v3/movie")
 	if err != nil {

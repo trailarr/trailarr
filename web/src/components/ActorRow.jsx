@@ -31,7 +31,7 @@ export default function ActorRow({ actors = [] }) {
               }}
               onError={(e) => {
                 e.target.onerror = null;
-                e.target.src = "/logo.svg";
+                e.target.src = "/icons/logo.svg";
               }}
             />
           ) : (

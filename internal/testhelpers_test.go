@@ -19,10 +19,10 @@ func CreateTempConfig(t *testing.T) string {
 	// config file exists at the package `ConfigPath` and returns the current
 	// TrailarrRoot.
 	oldRoot := TrailarrRoot
-	oldConfig := ConfigPath
+	oldConfig := GetConfigPath()
 	t.Cleanup(func() {
 		TrailarrRoot = oldRoot
-		ConfigPath = oldConfig
+		SetConfigPath(oldConfig)
 	})
 	cfgDir := filepath.Join(TrailarrRoot, "config")
 	if err := os.MkdirAll(cfgDir, 0755); err != nil {
@@ -32,7 +32,7 @@ func CreateTempConfig(t *testing.T) string {
 	// and helpers that expect the default name operate on the same file.
 	// This reduces CI flakiness caused by other code reading/writing the
 	// canonical `config.yml` name in the same directory.
-	ConfigPath = filepath.Join(cfgDir, "config.yml")
+	SetConfigPath(filepath.Join(cfgDir, "config.yml"))
 	// Write a minimal config file so code that expects sections won't panic.
 	// Use the same defaults as production helpers.
 	minimal := map[string]interface{}{
@@ -50,7 +50,7 @@ func WriteConfig(t *testing.T, content []byte) {
 	// Write atomically to avoid races where other goroutines/readers may
 	// observe a partially written or empty file. Write to a temp file and
 	// rename into place.
-	tmp := ConfigPath + ".tmp"
+	tmp := GetConfigPath() + ".tmp"
 	f, err := os.Create(tmp)
 	if err != nil {
 		t.Fatalf("failed to create temp config file: %v", err)
@@ -67,20 +67,37 @@ func WriteConfig(t *testing.T, content []byte) {
 	if err := f.Close(); err != nil {
 		t.Fatalf("failed to close temp config file: %v", err)
 	}
-	if err := os.Rename(tmp, ConfigPath); err != nil {
+	if err := os.Rename(tmp, GetConfigPath()); err != nil {
 		t.Fatalf("failed to rename temp config file: %v", err)
 	}
-	// Debug: read back and log file contents and metadata to help CI debugging
-	if b, err := os.ReadFile(ConfigPath); err == nil {
-		t.Logf("WriteConfig: wrote %d bytes to %s", len(b), ConfigPath)
-		t.Logf("WriteConfig: content:\n%s", string(b))
-	} else {
-		t.Logf("WriteConfig: failed to read back %s: %v", ConfigPath, err)
+	// Debug: read back and log file contents and metadata to help CI debugging.
+	// Some CI environments can have races where other goroutines replace the
+	// file immediately after rename; retry a few times so logs reflect the
+	// actual persisted content rather than a transient zero-length read.
+	var b []byte
+	var rerr error
+	for i := 0; i < 5; i++ {
+		b, rerr = os.ReadFile(GetConfigPath())
+		if rerr == nil && len(b) > 0 {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
-	if fi, err := os.Stat(ConfigPath); err == nil {
-		t.Logf("WriteConfig: file mod time=%s size=%d", fi.ModTime().Format(time.RFC3339Nano), fi.Size())
-	} else {
-		t.Logf("WriteConfig: stat failed for %s: %v", ConfigPath, err)
+	// Only emit detailed WriteConfig diagnostics when tests run in verbose
+	// mode (go test -v). This reduces noise on green CI runs while still
+	// providing the useful debug output when developers need it.
+	if testing.Verbose() {
+		if rerr == nil {
+			t.Logf("WriteConfig: wrote %d bytes to %s", len(b), GetConfigPath())
+			t.Logf("WriteConfig: content:\n%s", string(b))
+		} else {
+			t.Logf("WriteConfig: failed to read back %s: %v", GetConfigPath(), rerr)
+		}
+		if fi, err := os.Stat(GetConfigPath()); err == nil {
+			t.Logf("WriteConfig: file mod time=%s size=%d", fi.ModTime().Format(time.RFC3339Nano), fi.Size())
+		} else {
+			t.Logf("WriteConfig: stat failed for %s: %v", GetConfigPath(), err)
+		}
 	}
 }
 

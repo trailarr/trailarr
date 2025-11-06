@@ -87,10 +87,11 @@ func RegisterRoutes(r *gin.Engine) {
 	}
 
 	registerLogFileRoute(r)
+	registerIconRoute(r, distFS)
 	registerNoRouteHandler(r, distFS)
 
 	// Static media and logo
-	r.Static("/mediacover", MediaCoverPath)
+	r.Static(MediaCoverRoute, MediaCoverPath)
 	registerLogoRoute(r, distFS)
 
 	registerMediaAndSettingsRoutes(r)
@@ -287,7 +288,7 @@ func registerAPILogMiddleware(r *gin.Engine) {
 	r.Use(func(c *gin.Context) {
 		// Omit logging for /mediacover and GET /api/tasks/queue
 		if !(c.Request.Method == "GET" && c.Request.URL.Path == "/api/tasks/queue") &&
-			(len(c.Request.URL.Path) < 11 || c.Request.URL.Path[:11] != "/mediacover") {
+			!strings.HasPrefix(c.Request.URL.Path, MediaCoverRoute) {
 			TrailarrLog(INFO, "API", "%s %s", c.Request.Method, c.Request.URL.Path)
 		}
 		c.Next()
@@ -524,7 +525,25 @@ func registerLogFileRoute(r *gin.Engine) {
 func registerNoRouteHandler(r *gin.Engine, distFS iofs.FS) {
 	r.NoRoute(func(c *gin.Context) {
 		TrailarrLog(INFO, "WEB", "NoRoute handler hit for path: %s", c.Request.URL.Path)
-		// Serve index.html from embed if possible
+		// If the path looks like a static asset, API, websocket or favicon
+		// request, return a 404 instead of serving index.html. Serving
+		// index.html for those paths causes the SPA to show confusing
+		// "No routes matched" messages for missing assets. We still serve
+		// index.html for client-side routes (no dot and not a reserved
+		// prefix) so the SPA can handle routing normally.
+		p := c.Request.URL.Path
+		if strings.HasPrefix(p, "/api/") ||
+			strings.HasPrefix(p, "/assets/") ||
+			strings.HasPrefix(p, "/icons/") ||
+			strings.HasPrefix(p, MediaCoverRoute) ||
+			strings.HasPrefix(p, "/ws/") ||
+			strings.HasPrefix(p, "/favicon") ||
+			strings.Contains(p, ".") {
+			c.Status(http.StatusNotFound)
+			return
+		}
+
+		// Serve index.html from embed if possible (for SPA client routes)
 		if distFS != nil {
 			data, err := iofs.ReadFile(distFS, indexHTMLFilename)
 			if err == nil {
@@ -538,15 +557,39 @@ func registerNoRouteHandler(r *gin.Engine, distFS iofs.FS) {
 }
 
 func registerLogoRoute(r *gin.Engine, distFS iofs.FS) {
-	r.GET("/logo.svg", func(c *gin.Context) {
+	r.GET("/icons/logo.svg", func(c *gin.Context) {
 		if distFS != nil {
-			if data, err := iofs.ReadFile(distFS, "logo.svg"); err == nil {
+			if data, err := iofs.ReadFile(distFS, "icons/logo.svg"); err == nil {
 				reader := bytes.NewReader(data)
-				http.ServeContent(c.Writer, c.Request, "logo.svg", time.Now(), reader)
+				http.ServeContent(c.Writer, c.Request, "icons/logo.svg", time.Now(), reader)
 				return
 			}
 		}
-		c.File("web/public/logo.svg")
+		c.File("web/public/icons/logo.svg")
+	})
+}
+
+func registerIconRoute(r *gin.Engine, distFS iofs.FS) {
+	r.GET("/icons/:filename", func(c *gin.Context) {
+		if distFS != nil {
+			if data, err := iofs.ReadFile(distFS, "assets/"+c.Param("filename")); err == nil {
+				reader := bytes.NewReader(data)
+				http.ServeContent(c.Writer, c.Request, "assets/"+c.Param("filename"), time.Now(), reader)
+				return
+			}
+		}
+		// Fall back to serving the requested icon from the web/public/icons
+		// directory. This allows adding new icons (like plex.svg) without
+		// rebuilding the embedded assets.
+		filename := c.Param("filename")
+		localPath := filepath.Join("web", "public", "icons", filename)
+		if _, err := os.Stat(localPath); err == nil {
+			c.File(localPath)
+			return
+		}
+		// If the requested file doesn't exist, return 404 so the client can
+		// handle the missing asset rather than returning a generic logo.
+		c.Status(http.StatusNotFound)
 	})
 }
 
@@ -578,4 +621,11 @@ func registerMediaAndSettingsRoutes(r *gin.Engine) {
 	// General settings (TMDB key)
 	r.GET("/api/settings/general", getGeneralSettingsHandler)
 	r.POST("/api/settings/general", saveGeneralSettingsHandler)
+
+	// Plex settings and OAuth
+	r.GET("/api/settings/plex", GetPlexConfigHandler)
+	r.POST("/api/settings/plex", SavePlexConfigHandler)
+
+	r.GET("/api/plex/login", GetPlexOAuthLoginHandler)
+	r.POST("/api/plex/exchange", ExchangePlexCodeHandler)
 }

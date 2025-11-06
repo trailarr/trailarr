@@ -9,17 +9,17 @@ import (
 func TestGetPathMappingsTVAndProviderMissing(t *testing.T) {
 	tmp := t.TempDir()
 	oldRoot := TrailarrRoot
-	oldConfigPath := ConfigPath
+	oldConfigPath := GetConfigPath()
 	defer func() {
 		TrailarrRoot = oldRoot
-		ConfigPath = oldConfigPath
+		SetConfigPath(oldConfigPath)
 	}()
 	TrailarrRoot = tmp
 	cfgDir := filepath.Join(TrailarrRoot, "config")
 	if err := os.MkdirAll(cfgDir, 0755); err != nil {
 		t.Fatalf("failed to create config dir: %v", err)
 	}
-	ConfigPath = filepath.Join(cfgDir, "config.yml")
+	SetConfigPath(filepath.Join(cfgDir, "config.yml"))
 
 	content := []byte("sonarr:\n  url: http://sonarr.local\n  apiKey: SKEY\n  pathMappings:\n    - from: /mnt/tv\n      to: /media/tv\n")
 	WriteConfig(t, content)

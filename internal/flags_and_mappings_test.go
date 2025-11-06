@@ -7,13 +7,12 @@ import (
 func TestApplyYtdlpFlagsAndSetters(t *testing.T) {
 	cfg := DefaultYtdlpFlagsConfig()
 	sec := map[string]interface{}{
-		"quiet":              true,
-		"timeout":            12.5,
-		"maxDownloads":       4,
-		"cookiesFromBrowser": "firefox",
+		"quiet":        true,
+		"timeout":      12.5,
+		"maxDownloads": 4,
 	}
 	applyYtdlpFlags(sec, &cfg)
-	if !cfg.Quiet || cfg.Timeout != 12.5 || cfg.MaxDownloads != 4 || cfg.CookiesFromBrowser != "firefox" {
+	if !cfg.Quiet || cfg.Timeout != 12.5 || cfg.MaxDownloads != 4 {
 		t.Fatalf("applyYtdlpFlags did not apply values correctly: %+v", cfg)
 	}
 }

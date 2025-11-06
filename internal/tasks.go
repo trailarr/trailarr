@@ -79,6 +79,7 @@ func broadcastTaskStatus(_ map[string]interface{}) {
 }
 
 var GlobalTaskStates = make(TaskStates)
+var globalTaskStatesMu sync.RWMutex
 
 // Note: task_times are stored in the embedded store (TaskTimesStoreKey). Disk file support removed.
 
@@ -161,7 +162,9 @@ func LoadTaskStates() (TaskStates, error) {
 
 	ensureAllTasksExist(states)
 
+	globalTaskStatesMu.Lock()
 	GlobalTaskStates = states
+	globalTaskStatesMu.Unlock()
 	return states, nil
 }
 
@@ -204,13 +207,23 @@ func ensureAllTasksExist(states TaskStates) {
 }
 
 func saveTaskStates(states TaskStates) error {
+	// Update global state and make a local copy under lock to avoid races
+	// when other goroutines mutate the global map while we iterate it.
+	globalTaskStatesMu.Lock()
 	GlobalTaskStates = states
+	// make local copy
+	arrStates := make(TaskStates, len(states))
+	for k, v := range states {
+		arrStates[k] = v
+	}
+	globalTaskStatesMu.Unlock()
+
 	arr := make([]struct {
 		ID            TaskID    `json:"taskId"`
 		LastExecution time.Time `json:"lastExecution"`
 		LastDuration  float64   `json:"lastDuration"`
 	}, 0, len(states))
-	for id, t := range states {
+	for id, t := range arrStates {
 		taskId := t.ID
 		if taskId == "" {
 			taskId = id
@@ -240,7 +253,12 @@ func saveTaskStates(states TaskStates) error {
 func GetAllTasksStatus() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Use running flags for Radarr/Sonarr
-		states := GlobalTaskStates
+		globalTaskStatesMu.RLock()
+		states := make(TaskStates)
+		for k, v := range GlobalTaskStates {
+			states[k] = v
+		}
+		globalTaskStatesMu.RUnlock()
 		schedules := buildSchedules(states)
 		respondJSON(c, http.StatusOK, gin.H{
 			"schedules": schedules,
@@ -554,7 +572,12 @@ func scheduleTask(t bgTask) {
 		if t.id == "extras" {
 			// Wait until radarr and sonarr have executed at least once
 			for {
-				st := GlobalTaskStates
+				globalTaskStatesMu.RLock()
+				st := make(TaskStates)
+				for k, v := range GlobalTaskStates {
+					st[k] = v
+				}
+				globalTaskStatesMu.RUnlock()
 				radLast := st["radarr"].LastExecution
 				sonLast := st["sonarr"].LastExecution
 				if !radLast.IsZero() && !sonLast.IsZero() {
@@ -880,7 +903,12 @@ func sendTaskStatus(conn *websocket.Conn, status interface{}) {
 
 // Returns a map with all tasks' current status for broadcasting
 func getCurrentTaskStatus() map[string]interface{} {
-	states := GlobalTaskStates
+	globalTaskStatesMu.RLock()
+	states := make(TaskStates)
+	for k, v := range GlobalTaskStates {
+		states[k] = v
+	}
+	globalTaskStatesMu.RUnlock()
 	return map[string]interface{}{
 		"schedules": buildSchedules(states),
 	}
@@ -889,23 +917,27 @@ func getCurrentTaskStatus() map[string]interface{} {
 // Helper to run a task async and manage status
 func runTaskAsync(taskId TaskID, syncFunc func()) {
 	// Set running flag
+	globalTaskStatesMu.Lock()
 	GlobalTaskStates[taskId] = TaskState{
 		ID:            taskId,
 		LastExecution: GlobalTaskStates[taskId].LastExecution, // unchanged until end
 		LastDuration:  GlobalTaskStates[taskId].LastDuration,
 		Status:        "running",
 	}
+	globalTaskStatesMu.Unlock()
 	broadcastTaskStatus(getCurrentTaskStatus())
 	start := time.Now()
 	syncFunc()
 	duration := time.Since(start)
 	// Set idle flag and update LastExecution to NOW (end of task)
+	globalTaskStatesMu.Lock()
 	GlobalTaskStates[taskId] = TaskState{
 		ID:            taskId,
 		LastExecution: time.Now(),
 		LastDuration:  duration.Seconds(),
 		Status:        "idle",
 	}
+	globalTaskStatesMu.Unlock()
 	broadcastTaskStatus(getCurrentTaskStatus())
 	saveTaskStates(GlobalTaskStates)
 }

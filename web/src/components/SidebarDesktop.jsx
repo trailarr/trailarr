@@ -291,7 +291,7 @@ export default function SidebarDesktop({
                 {name === "Settings" &&
                   isOpen("Settings") &&
                   renderSubmenu(
-                    ["General", "Radarr", "Sonarr", "Extras", "Ytdlp"],
+                    ["General", "Radarr", "Sonarr", "Plex", "Extras", "Ytdlp"],
                     selectedSettingsSub,
                     (s) => `/settings/${s.toLowerCase()}`,
                     {

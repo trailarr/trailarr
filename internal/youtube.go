@@ -252,20 +252,19 @@ func handleYtDlpJSONLine(line []byte, videoIdSet map[string]bool, c *gin.Context
 }
 
 type YtdlpFlagsConfig struct {
-	Quiet              bool    `yaml:"quiet" json:"quiet"`
-	NoProgress         bool    `yaml:"noprogress" json:"noprogress"`
-	WriteSubs          bool    `yaml:"writesubs" json:"writesubs"`
-	WriteAutoSubs      bool    `yaml:"writeautosubs" json:"writeautosubs"`
-	EmbedSubs          bool    `yaml:"embedsubs" json:"embedsubs"`
-	SubLangs           string  `yaml:"sublangs" json:"sublangs"`
-	RequestedFormats   string  `yaml:"requestedformats" json:"requestedformats"`
-	Timeout            float64 `yaml:"timeout" json:"timeout"`
-	SleepInterval      float64 `yaml:"sleepInterval" json:"sleepInterval"`
-	MaxDownloads       int     `yaml:"maxDownloads" json:"maxDownloads"`
-	LimitRate          string  `yaml:"limitRate" json:"limitRate"`
-	SleepRequests      float64 `yaml:"sleepRequests" json:"sleepRequests"`
-	MaxSleepInterval   float64 `yaml:"maxSleepInterval" json:"maxSleepInterval"`
-	CookiesFromBrowser string  `yaml:"cookiesFromBrowser" json:"cookiesFromBrowser"`
+	Quiet            bool    `yaml:"quiet" json:"quiet"`
+	NoProgress       bool    `yaml:"noprogress" json:"noprogress"`
+	WriteSubs        bool    `yaml:"writesubs" json:"writesubs"`
+	WriteAutoSubs    bool    `yaml:"writeautosubs" json:"writeautosubs"`
+	EmbedSubs        bool    `yaml:"embedsubs" json:"embedsubs"`
+	SubLangs         string  `yaml:"sublangs" json:"sublangs"`
+	RequestedFormats string  `yaml:"requestedformats" json:"requestedformats"`
+	Timeout          float64 `yaml:"timeout" json:"timeout"`
+	SleepInterval    float64 `yaml:"sleepInterval" json:"sleepInterval"`
+	MaxDownloads     int     `yaml:"maxDownloads" json:"maxDownloads"`
+	LimitRate        string  `yaml:"limitRate" json:"limitRate"`
+	SleepRequests    float64 `yaml:"sleepRequests" json:"sleepRequests"`
+	MaxSleepInterval float64 `yaml:"maxSleepInterval" json:"maxSleepInterval"`
 }
 
 // YtdlpFlagsConfig holds configuration flags for yt-dlp command-line invocations.
@@ -1157,6 +1156,23 @@ func createSuccessMetadata(info *downloadInfo, youtubeId string) (*ExtraDownload
 	writeMetaFile(meta, info.OutFile)
 
 	TrailarrLog(INFO, "YouTube", "Downloaded %s to %s", info.ExtraTitle, info.OutFile)
+
+	// If this was a TV extra, attempt to refresh the show's metadata in Plex
+	switch info.MediaType {
+	case MediaTypeTV:
+		go func(mediaId int) {
+			if err := RefreshPlexShowMetadata(mediaId); err != nil {
+				TrailarrLog(WARN, "YouTube", "Failed to refresh Plex metadata for mediaId=%d: %v", mediaId, err)
+			}
+		}(info.MediaId)
+	case MediaTypeMovie:
+		// If this was a movie extra, request a movie metadata refresh in Plex
+		go func(mediaId int) {
+			if err := RefreshPlexMovieMetadata(mediaId); err != nil {
+				TrailarrLog(WARN, "YouTube", "Failed to refresh Plex movie metadata for mediaId=%d: %v", mediaId, err)
+			}
+		}(info.MediaId)
+	}
 	return meta, nil
 }
 

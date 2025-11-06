@@ -73,10 +73,10 @@ function MediaCard({ media, mediaType }) {
           className="media-card-poster"
           src={poster}
           loading="lazy"
-          onError={(e) => {
+            onError={(e) => {
             e.target.onerror = null;
             e.target.classList.add("fallback");
-            e.target.src = "/logo.svg";
+            e.target.src = "/icons/logo.svg";
           }}
           alt={media.title}
         />

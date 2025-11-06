@@ -110,16 +110,16 @@ func TestCanonicalizeExtraTypeMapping(t *testing.T) {
 	// temporarily write config file
 	tmp := t.TempDir()
 	old := TrailarrRoot
+	oldCfg := GetConfigPath()
 	TrailarrRoot = tmp
-	oldCfg := ConfigPath
-	ConfigPath = TrailarrRoot + "/config/config.yml"
-	_ = os.MkdirAll(filepath.Dir(ConfigPath), 0o755)
+	SetConfigPath(TrailarrRoot + "/config/config.yml")
+	_ = os.MkdirAll(filepath.Dir(GetConfigPath()), 0o755)
 	// write config with mapping
 	cfg := []byte("canonicalizeExtraType:\n  mapping:\n    OldType: NewType\n")
 	WriteConfig(t, cfg)
 	defer func() {
 		TrailarrRoot = old
-		ConfigPath = oldCfg
+		SetConfigPath(oldCfg)
 	}()
 	got := canonicalizeExtraType("OldType")
 	if got != "NewType" {
