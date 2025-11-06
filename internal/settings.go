@@ -175,9 +175,20 @@ func GetCanonicalizeExtraTypeConfig() (CanonicalizeExtraTypeConfig, error) {
 // parseCanonicalizeExtraTypeConfig extracts the canonicalizeExtraType.mapping
 // from raw YAML data into a CanonicalizeExtraTypeConfig.
 func parseCanonicalizeExtraTypeConfig(data []byte) CanonicalizeExtraTypeConfig {
-	var config map[string]interface{}
-	_ = yamlv3.Unmarshal(data, &config)
+	// Unmarshal into an empty interface and normalize so that YAML
+	// decoder-produced map[interface{}]interface{} values are converted
+	// into map[string]interface{}. This makes the parsing robust across
+	// environments and avoids flakiness where nested maps have non-string
+	// key types.
+	var raw interface{}
+	_ = yamlv3.Unmarshal(data, &raw)
+	normalized := normalizeYAML(raw)
+
 	cfg := CanonicalizeExtraTypeConfig{Mapping: map[string]string{}}
+	config, ok := normalized.(map[string]interface{})
+	if !ok {
+		return cfg
+	}
 	sec, ok := config["canonicalizeExtraType"].(map[string]interface{})
 	if !ok {
 		return cfg

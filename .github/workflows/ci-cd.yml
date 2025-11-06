@@ -31,10 +31,6 @@ jobs:
           cd web
           # Use c8 wrapper to ensure an lcov.info file is produced for CI
           npx c8 --reporter=lcov --reporter=text -- vitest --run
-      - name: List web coverage folder (debug)
-        run: |
-          echo "Coverage folder listing:"
-          ls -la web/coverage || echo "web/coverage not found"
       - name: Upload web coverage folder
         uses: actions/upload-artifact@v4
         with:
