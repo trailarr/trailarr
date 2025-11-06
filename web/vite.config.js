@@ -7,6 +7,11 @@ export default defineConfig({
   server: {
     middlewareMode: false,
   },
+  test: {
+    globals: true,
+    environment: "jsdom",
+    setupFiles: "./src/setupTests.js",
+  },
   appType: "spa",
   build: {
     rollupOptions: {
