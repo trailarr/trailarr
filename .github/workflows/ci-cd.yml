@@ -26,10 +26,11 @@ jobs:
         run: |
           cd web
           npm ci
-      - name: Run frontend tests and collect coverage
+      - name: Run frontend tests and collect coverage (c8 -> lcov)
         run: |
           cd web
-          npm run test:coverage
+          # Use c8 wrapper to ensure an lcov.info file is produced for CI
+          npx c8 --reporter=lcov --reporter=text -- vitest --run
       - name: List web coverage folder (debug)
         run: |
           echo "Coverage folder listing:"
