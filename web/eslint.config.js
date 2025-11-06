@@ -2,6 +2,7 @@ import js from "@eslint/js";
 import globals from "globals";
 import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
+import vitestPlugin from "eslint-plugin-vitest";
 import { defineConfig, globalIgnores } from "eslint/config";
 
 export default defineConfig([
@@ -11,6 +12,7 @@ export default defineConfig([
     plugins: {
       "react-hooks": reactHooks,
       "react-refresh": reactRefresh,
+      vitest: vitestPlugin,
     },
     extends: [js.configs.recommended],
     languageOptions: {
@@ -25,5 +27,24 @@ export default defineConfig([
     rules: {
       "no-unused-vars": ["error", { varsIgnorePattern: "^[A-Z_]" }],
     },
+  },
+  // Enable vitest globals (test, expect, vi, etc.) for test files
+  {
+    files: ["**/__tests__/**/*.{js,jsx}", "**/*.test.{js,jsx}"],
+    // ESLint flat config doesn't support `env`; provide vitest globals explicitly
+    languageOptions: {
+      globals: {
+        test: "readonly",
+        expect: "readonly",
+        vi: "readonly",
+        describe: "readonly",
+        it: "readonly",
+        beforeEach: "readonly",
+        afterEach: "readonly",
+        beforeAll: "readonly",
+        afterAll: "readonly",
+      },
+    },
+    plugins: { vitest: vitestPlugin },
   },
 ]);
