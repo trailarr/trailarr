@@ -18,6 +18,7 @@ import HealthBadge from "./HealthBadge.jsx";
 export default function SidebarDesktop({
   selectedSection,
   selectedSettingsSub,
+  selectedWantedSub,
   selectedSystemSub,
   isOpen,
   handleToggle,
@@ -282,7 +283,7 @@ export default function SidebarDesktop({
                   isOpen("Wanted") &&
                   renderSubmenu(
                     ["Movies", "Series"],
-                    selectedSettingsSub,
+                    selectedWantedSub,
                     (s) => `/wanted/${s.toLowerCase()}`,
                     {
                       parentSelected: selectedSection === name || isOpen(name),
@@ -325,6 +326,7 @@ export default function SidebarDesktop({
 SidebarDesktop.propTypes = {
   selectedSection: PropTypes.string.isRequired,
   selectedSettingsSub: PropTypes.string,
+  selectedWantedSub: PropTypes.string,
   selectedSystemSub: PropTypes.string,
   isOpen: PropTypes.func.isRequired,
   handleToggle: PropTypes.func.isRequired,
