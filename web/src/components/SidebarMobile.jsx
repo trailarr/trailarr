@@ -20,6 +20,7 @@ export default function SidebarMobile({
   onClose,
   selectedSection,
   selectedSettingsSub,
+  selectedWantedSub,
   selectedSystemSub,
   isOpen,
   handleToggle,
@@ -254,7 +255,7 @@ export default function SidebarMobile({
                     isOpen("Wanted") &&
                     renderSubmenu(
                       ["Movies", "Series"],
-                      selectedSettingsSub,
+                      selectedWantedSub,
                       (s) => `/wanted/${s.toLowerCase()}`,
                       {
                         parentSelected:
@@ -303,6 +304,7 @@ SidebarMobile.propTypes = {
   onClose: PropTypes.func.isRequired,
   selectedSection: PropTypes.string.isRequired,
   selectedSettingsSub: PropTypes.string,
+  selectedWantedSub: PropTypes.string,
   selectedSystemSub: PropTypes.string,
   isOpen: PropTypes.func.isRequired,
   handleToggle: PropTypes.func.isRequired,

@@ -39,6 +39,14 @@ function getSelectedSystemSub(path) {
   return "";
 }
 
+function getSelectedWantedSub(path) {
+  if (path.startsWith("/wanted/")) {
+    if (path.startsWith("/wanted/movies")) return "Movies";
+    if (path.startsWith("/wanted/series")) return "Series";
+  }
+  return "";
+}
+
 export default function Sidebar({ mobile, open, onClose }) {
   const location = useLocation();
   const path = location.pathname;
@@ -68,6 +76,7 @@ export default function Sidebar({ mobile, open, onClose }) {
   }, [location.pathname]);
   const selectedSettingsSub = getSelectedSettingsSub(path);
   const selectedSystemSub = getSelectedSystemSub(path);
+  const selectedWantedSub = getSelectedWantedSub(path);
 
   // Local state for submenu expansion
   const [openMenus, setOpenMenus] = React.useState({});
@@ -102,6 +111,7 @@ export default function Sidebar({ mobile, open, onClose }) {
         onClose={onClose}
         selectedSection={selectedSection}
         selectedSettingsSub={selectedSettingsSub}
+        selectedWantedSub={selectedWantedSub}
         selectedSystemSub={selectedSystemSub}
         isOpen={isOpen}
         handleToggle={handleToggle}
@@ -113,6 +123,7 @@ export default function Sidebar({ mobile, open, onClose }) {
     <SidebarDesktop
       selectedSection={selectedSection}
       selectedSettingsSub={selectedSettingsSub}
+      selectedWantedSub={selectedWantedSub}
       selectedSystemSub={selectedSystemSub}
       isOpen={isOpen}
       handleToggle={handleToggle}
