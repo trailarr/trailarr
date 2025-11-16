@@ -183,7 +183,9 @@ func GetExtraByYoutubeId(ctx context.Context, youtubeId string, mediaType MediaT
 // GetAllExtras returns all extras in the collection
 func loadTitles(cacheKey string) map[int]string {
 	titles := make(map[int]string)
-	items, _ := loadCache(cacheKey)
+	// Use raw store-backed load to avoid processLoadedItems which may trigger
+	// unwanted re-processing during simple title lookups.
+	items, _ := LoadMediaFromStore(cacheKey)
 	for _, m := range items {
 		idInt, ok := parseMediaID(m["id"])
 		if !ok {
@@ -268,6 +270,24 @@ type Extra struct {
 
 // GetRejectedExtrasForMedia returns rejected extras for a given media type and id, using the store cache
 func GetRejectedExtrasForMedia(mediaType MediaType, id int) []RejectedExtra {
+	// Use the lightweight rejected index (in-memory or store) when available
+	if idx, err := LoadRejectedIndex(); err == nil {
+		var rejected []RejectedExtra
+		for _, e := range idx {
+			if e.MediaType == mediaType && e.MediaId == id {
+				rejected = append(rejected, RejectedExtra{
+					MediaType:  e.MediaType,
+					MediaId:    e.MediaId,
+					ExtraType:  e.ExtraType,
+					ExtraTitle: e.ExtraTitle,
+					YoutubeId:  e.YoutubeId,
+					Reason:     e.Reason,
+				})
+			}
+		}
+		return rejected
+	}
+	// Fallback: scan the full collection when index not available
 	ctx := context.Background()
 	extras, err := GetAllExtras(ctx)
 	if err != nil {
@@ -683,10 +703,26 @@ func MarkDownloadedExtras(extras []Extra, mediaPath string, typeKey, titleKey st
 		typeStr := canonicalizeExtraType(extras[i].ExtraType)
 		extras[i].ExtraType = typeStr
 		title := SanitizeFilename(extras[i].ExtraTitle)
-		key := typeStr + "|" + title
 		extras[i].Status = "missing"
-		if existing[key] {
-			extras[i].Status = "downloaded"
+
+		// Iterate existing extras and match by sanitized title and by
+		// canonicalized extra type using a tolerant comparison that
+		// accepts singular/plural and case variations.
+		for key := range existing {
+			parts := strings.SplitN(key, "|", 2)
+			if len(parts) != 2 {
+				continue
+			}
+			existingType := parts[0]
+			existingTitle := parts[1]
+			if !strings.EqualFold(existingTitle, title) {
+				continue
+			}
+			// tolerant type match: e.g. Trailer vs Trailers
+			if strings.EqualFold(existingType, typeStr) || strings.EqualFold(existingType+"s", typeStr) || strings.EqualFold(existingType, typeStr+"s") {
+				extras[i].Status = "downloaded"
+				break
+			}
 		}
 	}
 }
