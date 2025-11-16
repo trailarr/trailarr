@@ -353,6 +353,22 @@ export default function Tasks() {
 
   const styles = getStyles(isDark);
 
+  // Returns true if value is a non-zero, parseable timestamp (not Go's "0001-01-01T00:00:00Z")
+  function hasValidTime(val) {
+    if (val === null || val === undefined) return false;
+    // Accept numbers (timestamp) and strings
+    if (typeof val === "number") return val > 0;
+    if (typeof val !== "string") return false;
+    if (val.trim() === "") return false;
+    // Go's zero time is usually 0001-01-01T00:00:00Z - treat it as invalid
+    if (val.startsWith("0001-01-01")) return false;
+    const d = new Date(val);
+    if (Number.isNaN(d.getTime())) return false;
+    // Another guard: year 1 is the Go zero time
+    if (d.getUTCFullYear && d.getUTCFullYear() === 1) return false;
+    return true;
+  }
+
   // Debounced loading indicator
   const [showLoading, setShowLoading] = useState(false);
   useEffect(() => {
@@ -611,6 +627,7 @@ export default function Tasks() {
                     const n = Number(dur);
                     if (!Number.isNaN(n)) dur = n;
                   }
+                  // Note: hasValidTime helper moved out of this function to top-level Tasks scope
                   if (typeof dur === "number" && !Number.isNaN(dur)) {
                     // Heuristic: if the number looks like nanoseconds (very large), convert to seconds
                     let seconds = dur;
@@ -630,17 +647,17 @@ export default function Tasks() {
                     </td>
                     <td style={styles.td}>{taskName || "-"}</td>
                     <td style={{ ...styles.td, textAlign: "center" }}>
-                      {item.queued
-                        ? formatTimeDiff({
-                            from: new Date(item.queued),
-                            to: new Date(),
-                            suffix: " ago",
-                            roundType: "cut",
-                          })
-                        : "—"}
+                      {hasValidTime(item.queued)
+                          ? formatTimeDiff({
+                              from: new Date(item.queued),
+                              to: new Date(),
+                              suffix: " ago",
+                              roundType: "cut",
+                            })
+                          : "—"}
                     </td>
                     <td style={{ ...styles.td, textAlign: "center" }}>
-                      {item.started
+                      {hasValidTime(item.started)
                         ? formatTimeDiff({
                             from: new Date(item.started),
                             to: new Date(),
@@ -650,7 +667,7 @@ export default function Tasks() {
                         : "—"}
                     </td>
                     <td style={{ ...styles.td, textAlign: "center" }}>
-                      {item.ended
+                      {hasValidTime(item.ended)
                         ? formatTimeDiff({
                             from: new Date(item.ended),
                             to: new Date(),
