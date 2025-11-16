@@ -39,4 +39,4 @@ export { default as YoutubeModal } from "./youtube/YoutubeModal.jsx";
 
 // Legacy compatibility re-exports
 // Legacy compatibility re-export -> point to canonical UI path now that the root wrapper will be removed
-export { default as ExtraCardOld } from "./ui/ExtraCard.jsx";
+// Legacy alias removed - imports should use the canonical `ExtraCard` from `./ui/ExtraCard.jsx`.
