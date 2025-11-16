@@ -7,7 +7,7 @@ import { MemoryRouter } from "react-router-dom";
 describe("Sidebar wanted submenu selection", () => {
   beforeEach(() => {
     // Mock fetch used by Sidebar to avoid console errors during tests
-    global.fetch = vi.fn(() =>
+    globalThis.fetch = vi.fn(() =>
       Promise.resolve({ ok: true, json: () => Promise.resolve({ health: [] }) })
     );
   });
