@@ -1,0 +1,9 @@
+.media-info-lane {
+  /* simple styling placeholder - original file moved */
+}
+.actor-row-scroll {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 8px 0;
+}

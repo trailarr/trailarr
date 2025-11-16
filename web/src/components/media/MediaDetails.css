@@ -1,0 +1,171 @@
+.md-container {
+  min-height: 100vh;
+  font-family: Roboto, Arial, sans-serif;
+  padding: 0;
+  box-sizing: border-box;
+  position: relative;
+}
+.md-container.md-dark {
+  background: #18181b;
+  color: #e5e7eb;
+}
+.md-container:not(.md-dark) {
+  background: #f7f8fa;
+  color: #222;
+}
+
+/* Skeleton styles */
+.md-skeleton-container {
+  min-height: 100vh;
+  padding: 24px;
+  padding-top: 88px; /* leave space under header */
+  font-family: Roboto, Arial, sans-serif;
+}
+.md-skeleton-container.md-mobile {
+  padding-top: 64px;
+  min-height: 60vh;
+}
+.md-skeleton-container.md-dark {
+  background: #18181b;
+}
+.md-skeleton-main {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  margin-top: 80px;
+}
+.md-skeleton-main.md-mobile {
+  margin-top: 40px;
+}
+.md-skel-poster {
+  width: 360px;
+  height: 360px;
+  border-radius: 12px;
+  flex-shrink: 0;
+  background: #eaeaea;
+}
+.md-skeleton-container.md-dark .md-skel-poster {
+  background: #111;
+}
+.md-skel-info {
+  flex: 1;
+}
+.md-skel-title {
+  width: 60%;
+  height: 28px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  background: #e8e8e8;
+}
+.md-skeleton-container.md-dark .md-skel-title {
+  background: #202124;
+}
+.md-skel-sub {
+  width: 40%;
+  height: 18px;
+  border-radius: 6px;
+  margin-bottom: 18px;
+  background: #e8e8e8;
+}
+.md-skeleton-container.md-dark .md-skel-sub {
+  background: #202124;
+}
+.md-skel-actions {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.md-skel-action {
+  width: 120px;
+  height: 36px;
+  border-radius: 8px;
+  background: #e8e8e8;
+}
+.md-skeleton-container.md-dark .md-skel-action {
+  background: #202124;
+}
+.md-skel-line {
+  height: 12px;
+}
+.md-skel-paragraph {
+  width: 100%;
+  height: 14px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  background: #e8e8e8;
+}
+.md-skeleton-container.md-dark .md-skel-paragraph {
+  background: #202124;
+}
+
+.md-extras-skeleton {
+  margin-top: 28px;
+}
+.md-extras-group {
+  margin-bottom: 18px;
+}
+.md-extras-group-title {
+  width: 30%;
+  height: 18px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  background: #e8e8e8;
+}
+.md-skeleton-container.md-dark .md-extras-group-title {
+  background: #202124;
+}
+.md-extras-cards {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.md-extras-card-skel {
+  width: 220px;
+  height: 260px;
+  border-radius: 12px;
+  background: #f0f0f0;
+}
+.md-skeleton-container.md-dark .md-extras-card-skel {
+  background: #111;
+}
+
+/* Floating error modal */
+.md-download-modal {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #ef4444;
+  color: #fff;
+  padding: 12px 32px;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
+  z-index: 9999;
+  font-weight: 500;
+  font-size: 16px;
+  min-width: 260px;
+  text-align: center;
+}
+
+/* Extras container */
+.md-extras-wrapper {
+  width: 100%;
+  overflow: hidden;
+  padding: 10px;
+  margin: 0;
+}
+.md-extras-wrapper.md-dark { background: #23232a; }
+.md-extras-wrapper:not(.md-dark) { background: #f3e8ff; }
+
+/* YouTube modal */
+.md-youtube-modal-backdrop { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.7); z-index: 99999; display: flex; align-items: center; justify-content: center; border: none; padding: 0; }
+.md-youtube-modal-content { position: relative; background: #18181b; border-radius: 16px; box-shadow: 0 2px 24px #000; padding: 0; display: flex; align-items: center; justify-content: center; overflow: visible; }
+.md-youtube-modal-close { position: absolute; top: 8px; left: 12px; z-index: 2; font-size: 28px; color: #fff; background: transparent; border: none; cursor: pointer; }
+
+/* Spinner overlay used inside embeds */
+.md-spinner-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 10; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 16px; }
+.md-youtube-embed { width: 100%; height: 100%; position: relative; display: flex; align-items: center; justify-content: center; }
+.md-youtube-iframe { border-radius: 8px; background: #000; width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
+
+/* Minimal utility */
+.md-hidden { display: none !important; }

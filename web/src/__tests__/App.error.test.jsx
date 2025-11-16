@@ -5,12 +5,12 @@ import App from '../App'
 import { vi } from 'vitest'
 
 // Mock heavy child components
-vi.mock('../components/Header', () => ({ default: () => <div data-testid="header">Header</div> }))
-vi.mock('../components/Sidebar', () => ({ default: () => <div data-testid="sidebar">Sidebar</div> }))
-vi.mock('../components/Toast', () => ({ default: ({ message }) => <div data-testid="toast">{message}</div> }))
-vi.mock('../components/HistoryPage', () => ({ default: () => <div>History</div> }))
-vi.mock('../components/BlacklistPage', () => ({ default: () => <div>Blacklist</div> }))
-vi.mock('../components/MediaDetails', () => ({ default: () => <div>MediaDetails</div> }))
+vi.mock('../components/layout/Header', () => ({ default: () => <div data-testid="header">Header</div> }))
+vi.mock('../components/layout/Sidebar', () => ({ default: () => <div data-testid="sidebar">Sidebar</div> }))
+vi.mock('../components/layout/Toast', () => ({ default: ({ message }) => <div data-testid="toast">{message}</div> }))
+vi.mock('../components/pages/HistoryPage', () => ({ default: () => <div>History</div> }))
+vi.mock('../components/pages/BlacklistPage', () => ({ default: () => <div>Blacklist</div> }))
+vi.mock('../components/media/MediaDetails', () => ({ default: () => <div>MediaDetails</div> }))
 
 // Mock the route component to expose the `error` prop passed by App
 vi.mock('../MediaRouteComponent', () => ({

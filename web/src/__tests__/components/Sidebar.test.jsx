@@ -1,7 +1,7 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import { vi } from "vitest";
-import Sidebar from "../../components/Sidebar";
+import Sidebar from "../../components/layout/Sidebar";
 import { MemoryRouter } from "react-router-dom";
 
 describe("Sidebar wanted submenu selection", () => {

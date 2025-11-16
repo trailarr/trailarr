@@ -1,6 +1,6 @@
 import React from 'react'
 import { render, screen } from '@testing-library/react'
-import HealthBadge from '../../components/HealthBadge'
+import HealthBadge from '../../components/ui/HealthBadge'
 
 describe('HealthBadge', () => {
   it('renders null when count is zero or negative', () => {

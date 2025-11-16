@@ -1,0 +1,13 @@
+@media (max-width: 900px) {
+  .media-list-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 1rem 0.5rem !important;
+    padding: 1rem 0.5rem !important;
+  }
+  .media-list-grid > div {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    height: auto !important;
+  }
+}

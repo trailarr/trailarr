@@ -1,7 +1,7 @@
 import React from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { vi } from 'vitest'
-import IconButton from '../../components/IconButton'
+import IconButton from '../../components/ui/IconButton'
 
 describe('IconButton', () => {
   it('renders icon and responds to clicks', () => {

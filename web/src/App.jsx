@@ -1,23 +1,17 @@
 import React, { useState, useEffect, lazy, Suspense } from "react";
 import PropTypes from "prop-types";
-import BlacklistPage from "./components/BlacklistPage";
 import MediaRouteComponent from "./MediaRouteComponent";
-import Toast from "./components/Toast";
+import { Toast } from "./components";
 import { Routes, Route, useLocation } from "react-router-dom";
 // Lazy-load heavy pages to reduce initial bundle while keeping vendor_react grouping
-const MediaDetails = lazy(() => import("./components/MediaDetails"));
-import Header from "./components/Header";
-import Sidebar from "./components/Sidebar";
-import GeneralSettings from "./components/GeneralSettings";
-import Tasks from "./components/Tasks";
-import HistoryPage from "./components/HistoryPage";
-import Wanted from "./components/Wanted";
-const ProviderSettingsPage = lazy(() => import("./components/ProviderSettingsPage"));
-const ExtrasSettings = lazy(() => import("./components/ExtrasSettings"));
-const YtdlpFlagsSettings = lazy(() => import("./components/YtdlpFlagsSettings"));
-const PlexSettings = lazy(() => import("./components/PlexSettings"));
-import LogsPage from "./components/LogsPage";
-import StatusPage from "./components/StatusPage";
+const MediaDetails = lazy(() => import("./components/media/MediaDetails"));
+import { Header, Sidebar } from "./components";
+import { GeneralSettings, Tasks, HistoryPage, Wanted, BlacklistPage } from "./components";
+const ProviderSettingsPage = lazy(() => import("./components/pages/ProviderSettingsPage"));
+const ExtrasSettings = lazy(() => import("./components/settings/ExtrasSettings"));
+const YtdlpFlagsSettings = lazy(() => import("./components/settings/YtdlpFlagsSettings"));
+const PlexSettings = lazy(() => import("./components/settings/PlexSettings"));
+import { LogsPage, StatusPage } from "./components";
 import {
   getSeries,
   getMovies,
@@ -25,7 +19,7 @@ import {
   getSeriesWanted,
 } from "./api";
 import { getSearchSections as _getSearchSections } from "./utils/search";
-import ErrorBoundary from "./components/ErrorBoundary";
+import { ErrorBoundary } from "./components";
 import { isDark } from "./utils/isDark";
 
 // Small helper element to avoid repeating Suspense + ErrorBoundary
