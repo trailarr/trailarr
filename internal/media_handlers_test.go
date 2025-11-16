@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -50,6 +52,57 @@ func TestGetMediaHandlerListAndFilter(t *testing.T) {
 	}
 	if len(resp2["items"]) != 1 {
 		t.Fatalf("expected 1 item after filter, got %d", len(resp2["items"]))
+	}
+}
+
+// Ensure GetMediaHandler returns raw store path values (no mapping applied) for list endpoint
+func TestGetMediaHandlerReturnsRawStoreValues(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	tmp := t.TempDir()
+	old := TrailarrRoot
+	oldCfg := GetConfigPath()
+	TrailarrRoot = tmp
+	SetConfigPath(TrailarrRoot + "/config/config.yml")
+	_ = os.MkdirAll(filepath.Dir(GetConfigPath()), 0o755)
+	// Configure a mapping that would convert TV -> Movies if applied
+	cfg := []byte("sonarr:\n  pathMappings:\n    - from: \"/mnt/unionfs/Media/TV\"\n      to: \"/mnt/unionfs/Media/Movies\"\n")
+	_ = os.WriteFile(GetConfigPath(), cfg, 0o644)
+	defer func() {
+		TrailarrRoot = old
+		SetConfigPath(oldCfg)
+	}()
+
+	// Save a series item with TV path
+	tvPath := "/mnt/unionfs/Media/TV/1923"
+	if err := SaveMediaToStore(SeriesStoreKey, []map[string]interface{}{{"id": 292, "path": tvPath}}); err != nil {
+		t.Fatalf("SaveMediaToStore failed: %v", err)
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	req := httptest.NewRequest("GET", "/?", nil)
+	c.Request = req
+	handler := GetMediaHandler(SeriesStoreKey, "id")
+	handler(c)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	var resp map[string][]map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("invalid json response: %v", err)
+	}
+	// Expect returned path to be raw (tvPath) not mapped to Movies path
+	items := resp["items"]
+	found := false
+	for _, it := range items {
+		if id, ok := it["id"].(float64); ok && int(id) == 292 {
+			if p, ok := it["path"].(string); ok && p == tvPath {
+				found = true
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("expected raw tv path in returned items, got: %v", resp)
 	}
 }
 

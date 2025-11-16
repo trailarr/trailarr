@@ -87,6 +87,23 @@ func TestMarkDownloadedExtrasAndCanonicalizeMeta(t *testing.T) {
 	}
 }
 
+func TestMarkDownloadedExtrasPluralAndCaseInsensitive(t *testing.T) {
+	// ensure pluralized folder names and case differences are handled
+	tmp := t.TempDir()
+	seriesDir := filepath.Join(tmp, "Series")
+	// create a plural folder name "Trailers"
+	_ = os.MkdirAll(filepath.Join(seriesDir, "Trailers"), 0o755)
+	// create mkv file with mixed case to test case-insensitive matching
+	_ = os.WriteFile(filepath.Join(seriesDir, "Trailers", "MyExtra.mkv"), []byte(""), 0o644)
+
+	// Extra type is singular 'Trailer' which should match existing 'Trailers' folder
+	extras := []Extra{{ExtraType: "Trailer", ExtraTitle: "MyExtra", YoutubeId: "y1"}}
+	MarkDownloadedExtras(extras, seriesDir, "type", "title")
+	if extras[0].Status != "downloaded" {
+		t.Fatalf("expected MarkDownloadedExtras to mark downloaded for plural folder: %v", extras)
+	}
+}
+
 func TestDeleteExtraFiles(t *testing.T) {
 	tmp := t.TempDir()
 	mediaPath := filepath.Join(tmp, "M")
