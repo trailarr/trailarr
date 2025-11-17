@@ -1,17 +1,23 @@
 import React, { useState, useEffect, lazy, Suspense } from "react";
 import PropTypes from "prop-types";
 import MediaRouteComponent from "./MediaRouteComponent";
-import { Toast } from "./components";
+import Toast from "./components/layout/Toast.jsx";
 import { Routes, Route, useLocation } from "react-router-dom";
 // Lazy-load heavy pages to reduce initial bundle while keeping vendor_react grouping
 const MediaDetails = lazy(() => import("./components/media/MediaDetails"));
-import { Header, Sidebar } from "./components";
-import { GeneralSettings, Tasks, HistoryPage, Wanted, BlacklistPage } from "./components";
+import Header from "./components/layout/Header.jsx";
+import Sidebar from "./components/layout/Sidebar.jsx";
+import GeneralSettings from "./components/settings/GeneralSettings.jsx";
+import Tasks from "./components/pages/Tasks.jsx";
+import HistoryPage from "./components/pages/HistoryPage.jsx";
+import Wanted from "./components/pages/Wanted.jsx";
+import BlacklistPage from "./components/pages/BlacklistPage.jsx";
 const ProviderSettingsPage = lazy(() => import("./components/pages/ProviderSettingsPage"));
 const ExtrasSettings = lazy(() => import("./components/settings/ExtrasSettings"));
 const YtdlpFlagsSettings = lazy(() => import("./components/settings/YtdlpFlagsSettings"));
 const PlexSettings = lazy(() => import("./components/settings/PlexSettings"));
-import { LogsPage, StatusPage } from "./components";
+import LogsPage from "./components/pages/LogsPage.jsx";
+import StatusPage from "./components/pages/StatusPage.jsx";
 import {
   getSeries,
   getMovies,
@@ -19,7 +25,7 @@ import {
   getSeriesWanted,
 } from "./api";
 import { getSearchSections as _getSearchSections } from "./utils/search";
-import { ErrorBoundary } from "./components";
+import ErrorBoundary from "./components/layout/ErrorBoundary.jsx";
 import { isDark } from "./utils/isDark";
 
 // Small helper element to avoid repeating Suspense + ErrorBoundary
