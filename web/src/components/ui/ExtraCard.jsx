@@ -20,7 +20,7 @@ function areEqual(prevProps, nextProps) {
   const next = nextProps.extra || {};
   if (prev.YoutubeId !== next.YoutubeId) return false;
   if (prev.Status !== next.Status) return false;
-  if (prev.Reason !== next.Reason) return false;
+  if (prev.reason !== next.reason) return false;
   if (prevProps.rejected !== nextProps.rejected) return false;
   if (prevProps.idx !== nextProps.idx) return false;
   const prevMediaId = prevProps.media?.id;
@@ -183,7 +183,7 @@ function ExtraCardActions({
 
 // Helper for download button title (SonarLint: move out of render)
 function getDownloadButtonTitle({ rejected, extra, isDownloading, isQueued }) {
-  if (rejected) return extra.Reason;
+  if (rejected) return extra.reason;
   if (isDownloading) return "Downloading...";
   if (isQueued) return "Queued";
   return "Download";
@@ -536,7 +536,7 @@ function ExtraCard({
             // If already queued, leave as-is
             if (ex.Status === "queued") return ex;
             didOptimisticallyAdd = true;
-            return { ...ex, Status: "queued", Reason: "" };
+            return { ...ex, Status: "queued", reason: "" };
           }
           return ex;
         });
@@ -547,7 +547,7 @@ function ExtraCard({
           {
             ...extra,
             Status: "queued",
-            Reason: "",
+            reason: "",
             ExtraType: baseType,
             ExtraTitle: baseTitle,
             YoutubeId: extra.YoutubeId,
@@ -659,7 +659,7 @@ function ExtraCard({
   const borderColor = getBorderColor({ rejected, failed, downloaded, exists });
   return (
     <div
-      title={rejected ? extra.Reason : undefined}
+      title={rejected ? extra.reason : undefined}
       style={{
         width: 180,
         height: 210,
@@ -786,7 +786,7 @@ function ExtraCard({
 
 ExtraCard.propTypes = {
   extra: PropTypes.shape({
-    Reason: PropTypes.string,
+    reason: PropTypes.string,
     ExtraTitle: PropTypes.string,
     ExtraType: PropTypes.string,
     YoutubeId: PropTypes.string,

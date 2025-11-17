@@ -13,7 +13,7 @@ vi.mock('../components/pages/BlacklistPage', () => ({ default: () => <div>Blackl
 vi.mock('../components/media/MediaDetails', () => ({ default: () => <div>MediaDetails</div> }))
 
 // Mock the route component to expose the `error` prop passed by App
-vi.mock('../MediaRouteComponent', () => ({
+vi.mock('../components/media/MediaRouteComponent', () => ({
   default: ({ items, error, type }) => (
     <div data-testid="route" data-type={type} data-error={error}>{items ? items.length : 0}</div>
   ),

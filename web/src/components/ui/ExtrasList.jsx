@@ -17,10 +17,10 @@ function ExtrasList({ extrasByType, media, mediaType, setExtras, setModalMsg, se
     function updateExtraWithQueue(ex, queue) {
       const queueItem = queue.find((q) => q.youtubeId === ex.YoutubeId);
       if (queueItem) {
-        if ((queueItem.status === "failed" || queueItem.status === "rejected") && ex.Status !== "failed" && ex.Status !== "rejected" && (queueItem.reason || queueItem.Reason)) {
-          setToastMsg(queueItem.reason || queueItem.Reason); setToastSuccess(false);
+        if ((queueItem.status === "failed" || queueItem.status === "rejected") && ex.Status !== "failed" && ex.Status !== "rejected" && queueItem.reason) {
+          setToastMsg(queueItem.reason); setToastSuccess(false);
         }
-        return { ...ex, Status: queueItem.status, reason: queueItem.reason || queueItem.Reason, Reason: queueItem.reason || queueItem.Reason };
+        return { ...ex, Status: queueItem.status, reason: queueItem.reason };
       }
       return ex;
     }

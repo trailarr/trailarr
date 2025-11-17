@@ -13,7 +13,7 @@ vi.mock('../components/pages/BlacklistPage', () => ({ default: () => <div>Blackl
 vi.mock('../components/media/MediaDetails', () => ({ default: () => <div>MediaDetails</div> }))
 
 // Mock the route component to show how many items it received
-vi.mock('../MediaRouteComponent', () => ({
+vi.mock('../components/media/MediaRouteComponent', () => ({
   default: ({ items, type }) => (
     <div data-testid="route" data-type={type}>{items ? items.length : 0}</div>
   ),

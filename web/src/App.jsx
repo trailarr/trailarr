@@ -1,6 +1,6 @@
 import React, { useState, useEffect, lazy, Suspense } from "react";
 import PropTypes from "prop-types";
-import MediaRouteComponent from "./MediaRouteComponent";
+import MediaRouteComponent from "./components/media/MediaRouteComponent";
 import Toast from "./components/layout/Toast.jsx";
 import { Routes, Route, useLocation } from "react-router-dom";
 // Lazy-load heavy pages to reduce initial bundle while keeping vendor_react grouping

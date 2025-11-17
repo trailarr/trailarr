@@ -26,10 +26,10 @@ function handleExtrasQueueUpdate(msg, mediaId, setExtras, setError) {
 function updateExtraWithQueueStatus(ex, queue, mediaId, setError) {
   const found = queue.find((q) => q.MediaId == mediaId && q.YouTubeID === ex.YoutubeId);
   if (found?.Status) {
-    if ((found.Status === "failed" || found.Status === "rejected") && (found.reason || found.Reason) && ex.Status !== found.Status) {
-      setError(found.reason || found.Reason);
+        if ((found.Status === "failed" || found.Status === "rejected") && found.reason && ex.Status !== found.Status) {
+          setError(found.reason);
     }
-    return { ...ex, Status: found.Status, reason: found.reason || found.Reason, Reason: found.reason || found.Reason };
+    return { ...ex, Status: found.Status, reason: found.reason };
   }
   return ex;
 }
@@ -46,7 +46,6 @@ function ytResultsToExtras(ytResults) {
       PublishedAt: item.snippet?.publishedAt || "",
       Description: item.snippet?.description || "",
       reason: "",
-      Reason: "",
       Source: "YouTubeSearch",
       Downloaded: false,
       Exists: false,
