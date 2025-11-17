@@ -22,15 +22,17 @@ const EXTRA_TYPES = [
 
 export default function ExtrasSettings() {
   useEffect(() => {
-    const setColors = () => {
-      document.documentElement.style.setProperty("--save-lane-bg", isDark ? "#333" : "#e5e7eb");
-      document.documentElement.style.setProperty("--save-lane-text", isDark ? "#eee" : "#222");
-      document.documentElement.style.setProperty("--settings-input-bg", isDark ? "#333" : "#f5f5f5");
-      document.documentElement.style.setProperty("--settings-input-text", isDark ? "#eee" : "#222");
-      document.documentElement.style.setProperty("--settings-table-bg", isDark ? "#444" : "#f7f7f7");
-      document.documentElement.style.setProperty("--settings-table-text", isDark ? "#f3f3f3" : "#222");
-      document.documentElement.style.setProperty("--settings-table-header-bg", isDark ? "#555" : "#ededed");
-      document.documentElement.style.setProperty("--settings-table-header-text", isDark ? "#fff" : "#222");
+      const setColors = () => {
+        document.documentElement.style.setProperty("--settings-bg", isDark ? "#222" : "#fff");
+        document.documentElement.style.setProperty("--settings-text", isDark ? "#eee" : "#222");
+        document.documentElement.style.setProperty("--save-lane-bg", isDark ? "#333" : "#e5e7eb");
+        document.documentElement.style.setProperty("--save-lane-text", isDark ? "#eee" : "#222");
+        document.documentElement.style.setProperty("--settings-input-bg", isDark ? "#333" : "#f5f5f5");
+        document.documentElement.style.setProperty("--settings-input-text", isDark ? "#eee" : "#222");
+        document.documentElement.style.setProperty("--settings-table-bg", isDark ? "#444" : "#f7f7f7");
+        document.documentElement.style.setProperty("--settings-table-text", isDark ? "#f3f3f3" : "#222");
+        document.documentElement.style.setProperty("--settings-table-header-bg", isDark ? "#555" : "#ededed");
+        document.documentElement.style.setProperty("--settings-table-header-text", isDark ? "#fff" : "#222");
     };
     setColors();
     const remove = addDarkModeListener(() => setColors());
@@ -78,7 +80,30 @@ export default function ExtrasSettings() {
       <div style={{ marginTop: "4.5rem", color: "var(--settings-text, #222)", borderRadius: 12, boxShadow: "0 1px 4px #0001", padding: "2rem" }}>
         <SectionHeader>Extra Types</SectionHeader>
         <div style={{ marginBottom: "2em" }}>
-          <Select isMulti options={EXTRA_TYPES.map(({ key, label }) => ({ value: key, label }))} value={EXTRA_TYPES.filter(({ key }) => settings[key]).map(({ key, label }) => ({ value: key, label }))} onChange={(selected) => { const newSettings = {}; for (const { key } of EXTRA_TYPES) newSettings[key] = false; for (const { value } of selected) newSettings[value] = true; setSettings(newSettings); }} styles={{ /* omitted for brevity */ }} placeholder="Select extra types..." closeMenuOnSelect={false} hideSelectedOptions={false} menuPortalTarget={document.body} />
+          <Select
+            isMulti
+            options={EXTRA_TYPES.map(({ key, label }) => ({ value: key, label }))}
+            value={EXTRA_TYPES.filter(({ key }) => settings[key]).map(({ key, label }) => ({ value: key, label }))}
+            onChange={(selected) => {
+              const newSettings = {};
+              for (const { key } of EXTRA_TYPES) newSettings[key] = false;
+              for (const { value } of selected) newSettings[value] = true;
+              setSettings(newSettings);
+            }}
+            styles={{
+              container: (base) => ({ ...base, maxWidth: 480 }),
+              control: (base) => ({ ...base, background: 'var(--settings-input-bg)', color: 'var(--settings-input-text)', borderColor: isDark ? '#444' : '#ccc', minHeight: 42 }),
+              menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+              option: (base, state) => ({ ...base, background: state.isSelected ? (isDark ? '#2b2b2b' : '#e6e6ff') : 'transparent', color: 'var(--settings-text)' }),
+              multiValue: (base) => ({ ...base, background: isDark ? '#333' : '#e9e9ff' }),
+              multiValueLabel: (base) => ({ ...base, color: 'var(--settings-text)' }),
+              singleValue: (base) => ({ ...base, color: 'var(--settings-text)' }),
+            }}
+            placeholder="Select extra types..."
+            closeMenuOnSelect={false}
+            hideSelectedOptions={false}
+            menuPortalTarget={document.body}
+          />
         </div>
         <ExtrasTypeMappingConfig mapping={mapping} onMappingChange={handleMappingChange} tmdbTypes={tmdbTypes} plexTypes={plexTypes} />
       </div>
