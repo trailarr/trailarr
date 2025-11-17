@@ -1,5 +1,4 @@
 import React, { useState, useMemo, useCallback } from "react";
-import "./ExtraCard.css";
 import { deleteExtra } from "../../api";
 import IconButton from "./IconButton.jsx";
 import PropTypes from "prop-types";
@@ -660,7 +659,6 @@ function ExtraCard({
   const borderColor = getBorderColor({ rejected, failed, downloaded, exists });
   return (
     <div
-      className={`extra-card ${isDark ? "dark" : ""}`}
       title={rejected ? extra.Reason : undefined}
       style={{
         width: 180,
@@ -690,12 +688,6 @@ function ExtraCard({
           position: "relative",
         }}
       >
-        {/* Show rejection reason on hover and for keyboard focus */}
-        {rejected && extra.Reason && (
-          <div className={`extra-card-reason ${isDark ? "dark" : ""}`} role="tooltip">
-            {extra.Reason}
-          </div>
-        )}
         {/* Poster Image or Fallback */}
         {!imgError && posterUrl ? (
           <PosterImage
