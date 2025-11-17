@@ -1,4 +1,4 @@
-.status-page.container { padding: 1.2rem; max-width: 1100px; margin: 0; text-align: left; }
+.status-page.container { padding: 1.2rem; max-width: 1100px; margin: 0; text-align: left; --status-text: #111827; }
 .status-title { margin-top: 1rem; margin-bottom: 0.5rem; color: #374151; }
 .status-card { background: var(--card-bg, #fff); border: none; padding: 0; margin-bottom: 0.5rem; border-radius: 0; }
 .health-table { width: 100%; border-collapse: collapse; }
@@ -27,15 +27,15 @@
 .about-list { display: block; }
 .about-row { display: grid; grid-template-columns: var(--about-label-width, 160px) 1fr; gap: 0.5rem; align-items: center; padding: 0.25rem 0; }
 .about-row dt { font-weight: 600; color: #374151; text-align: right; padding-right: 0.5rem; }
-.about-row dd { margin: 0; color: #111827; text-align: left; }
+.about-row dd { margin: 0; color: var(--status-text); text-align: left; }
 .links-row { display: flex; gap: 1rem; }
 .links-row a { color: #2563eb; text-decoration: none; }
 .donate-links { display: flex; gap: 1rem; margin-top: 0.5rem; }
 .donate-btn { display: inline-block; padding: 0.5rem 0.75rem; background: #10b981; color: white; border-radius: 6px; text-decoration: none; }
-@media (prefers-color-scheme: dark) { .status-page.container { color: #e5e7eb; } .status-card { background: #17171a; border: 1px solid #222; } .status-hint { --status-hint-bg: #0f1724; --status-hint-border: #12202a; background: var(--status-hint-bg); border: 1px solid var(--status-hint-border); } .bar { background: #0b1220; } .bar-inner { background: #60a5fa; } }
+@media (prefers-color-scheme: dark) { .status-page.container { color: #e5e7eb; --status-text: #e5e7eb; } .status-card { background: #17171a; border: 1px solid #222; } .status-hint { --status-hint-bg: #0f1724; --status-hint-border: #12202a; background: var(--status-hint-bg); border: 1px solid var(--status-hint-border); } .bar { background: #0b1220; } .bar-inner { background: #60a5fa; } }
 @media (max-width: 600px) { .bar { display: none; } }
 @media (max-width: 600px) { .about-list { grid-template-columns: 1fr; } .about-row { display: block; } .about-row dt { text-align: left; padding-right: 0; } .about-row dd { margin-top: 0.25rem; } }
-.status-dark .status-page.container { color: #e5e7eb; }
+.status-dark .status-page.container { color: #e5e7eb; --status-text: #e5e7eb; }
 .status-dark .status-card { background: #17171a; border: 1px solid #222; }
 .status-dark .status-hint { --status-hint-bg: #0f1724; --status-hint-border: #12202a; background: var(--status-hint-bg); border: 1px solid var(--status-hint-border); }
 .status-dark .bar { background: #0b1220; }
