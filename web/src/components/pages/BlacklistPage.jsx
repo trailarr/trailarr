@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import PropTypes from "prop-types";
-import "../BlacklistPage.css";
+import "./BlacklistPage.css";
 import ExtraCard from "../ui/ExtraCard.jsx";
 import YoutubePlayer from "../youtube/YoutubePlayer.jsx";
 import Container from "../layout/Container.jsx";

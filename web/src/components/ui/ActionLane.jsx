@@ -11,7 +11,7 @@ export default function ActionLane({ buttons = [], error, children }) {
       className="media-action-lane"
       style={{
         position: "fixed",
-        top: 64,
+        top: "var(--action-lane-height, 64px)",
         left: 0,
         width: "100%",
         background: laneBg,
