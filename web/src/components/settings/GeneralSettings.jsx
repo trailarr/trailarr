@@ -45,7 +45,7 @@ export default function GeneralSettings() {
       <div style={{ marginTop: "4.5rem", color: isDark ? "#f3f4f6" : "#23232a", borderRadius: 12, boxShadow: "0 1px 4px #0001", padding: "2rem" }}>
         <SectionHeader>TMDB API Key</SectionHeader>
         {/* Form fields (same as original) simplified for brevity */}
-        <input id="tmdbKey" type="text" value={tmdbKey} onChange={(e) => setTmdbKey(e.target.value)} style={{ width: "100%" }} />
+        <input id="tmdbKey" type="text" value={tmdbKey} onChange={(e) => setTmdbKey(e.target.value)} style={{ width: "100%", maxWidth: 480, boxSizing: 'border-box' }} />
       </div>
     </Container>
   );
