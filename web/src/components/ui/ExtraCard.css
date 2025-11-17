@@ -1,0 +1,37 @@
+/* ExtraCard hover tooltip for reason (failed/rejected) */
+.extra-card {
+  position: relative;
+}
+.extra-card-reason {
+  display: none;
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  background: #fff;
+  color: #111;
+  border-radius: 8px;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+  max-width: 260px;
+  font-size: 13px;
+  line-height: 1.2;
+  pointer-events: none; /* Allow clicks through the tooltip */
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.extra-card:hover .extra-card-reason {
+  display: block;
+}
+.extra-card-reason.dark {
+  background: #111;
+  color: #e5e7eb;
+  border: 1px solid #333;
+}
+
+/* Keep tooltip from covering action icons by shifting it slightly upwards on small screens */
+@media (max-width: 900px) {
+  .extra-card-reason { top: 8px; left: 8px; transform: none; max-width: calc(100vw - 40px); }
+}
