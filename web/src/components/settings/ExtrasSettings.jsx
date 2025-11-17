@@ -92,10 +92,23 @@ export default function ExtrasSettings() {
             }}
             styles={{
               container: (base) => ({ ...base, maxWidth: 480 }),
-              control: (base) => ({ ...base, background: 'var(--settings-input-bg)', color: 'var(--settings-input-text)', borderColor: isDark ? '#444' : '#ccc', minHeight: 42 }),
+              control: (base, state) => ({
+                ...base,
+                background: 'var(--settings-input-bg)',
+                color: 'var(--settings-input-text)',
+                borderColor: state.isFocused ? (isDark ? '#fff' : '#6d28d9') : (isDark ? '#ccc' : '#444'),
+                minHeight: 42,
+                outline: 'none',
+                boxShadow: state.isFocused
+                  ? (isDark
+                    ? '0 0 0 3px rgba(255,255,255,0.12)'
+                    : '0 0 0 3px rgba(109,40,217,0.12)')
+                  : 'none',
+                borderRadius: 10,
+              }),
               menuPortal: (base) => ({ ...base, zIndex: 9999 }),
-              option: (base, state) => ({ ...base, background: state.isSelected ? (isDark ? '#2b2b2b' : '#e6e6ff') : 'transparent', color: 'var(--settings-text)' }),
-              multiValue: (base) => ({ ...base, background: isDark ? '#333' : '#e9e9ff' }),
+              option: (base, state) => ({ ...base, background: state.isSelected ? (isDark ? '#2b2b2b' : '#e6e6ff') : 'transparent', color: 'var(--settings-text)', borderRadius: 6 }),
+              multiValue: (base) => ({ ...base, background: isDark ? '#333' : '#e9e9ff', borderRadius: 6 }),
               multiValueLabel: (base) => ({ ...base, color: 'var(--settings-text)' }),
               singleValue: (base) => ({ ...base, color: 'var(--settings-text)' }),
             }}
