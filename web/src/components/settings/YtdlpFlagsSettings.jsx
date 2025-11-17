@@ -26,7 +26,9 @@ const YTDLP_FLAGS = [
 
 export default function YtdlpFlagsSettings() {
   useEffect(() => {
-    const setColors = () => {
+      const setColors = () => {
+      document.documentElement.style.setProperty("--settings-bg", isDark ? "#222" : "#fff");
+      document.documentElement.style.setProperty("--settings-text", isDark ? "#eee" : "#222");
       document.documentElement.style.setProperty("--save-lane-bg", isDark ? "#333" : "#e5e7eb");
       document.documentElement.style.setProperty("--save-lane-text", isDark ? "#eee" : "#222");
       document.documentElement.style.setProperty("--settings-input-bg", isDark ? "#333" : "#f5f5f5");
