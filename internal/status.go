@@ -10,10 +10,145 @@ import (
 	"path/filepath"
 	"runtime/debug"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
 )
+
+// Cache for latest releases to avoid hitting GitHub on every health check
+var latestReleaseCacheMu sync.Mutex
+var latestReleaseCache = map[string]struct {
+	tag string
+	ts  time.Time
+}{}
+var latestReleaseTTL = 12 * time.Hour
+
+// fetchLatestGithubReleaseTag fetches the latest release tag for the given github repo (owner/repo)
+// It caches results for `latestReleaseTTL` to avoid frequent API calls.
+func fetchLatestGithubReleaseTag(repo string) (string, error) {
+	latestReleaseCacheMu.Lock()
+	cached, ok := latestReleaseCache[repo]
+	latestReleaseCacheMu.Unlock()
+	if ok && time.Since(cached.ts) < latestReleaseTTL {
+		return cached.tag, nil
+	}
+
+	// Use a short client timeout
+	client := &http.Client{Timeout: 5 * time.Second}
+	url := fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", repo)
+	req, _ := http.NewRequestWithContext(context.Background(), "GET", url, nil)
+	req.Header.Set("User-Agent", "trailarr")
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("unexpected response: %s", resp.Status)
+	}
+	var payload struct {
+		TagName string `json:"tag_name"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		return "", err
+	}
+	tag := strings.TrimPrefix(strings.TrimSpace(payload.TagName), "v")
+	latestReleaseCacheMu.Lock()
+	latestReleaseCache[repo] = struct {
+		tag string
+		ts  time.Time
+	}{tag, time.Now()}
+	latestReleaseCacheMu.Unlock()
+	return tag, nil
+}
+
+// compareVersion tries to perform a loose semver numeric comparison of two versions.
+// Returns 1 if a > b, -1 if a < b, 0 if equal or unparsable. We compare numeric sequences left-to-right.
+func compareVersion(a, b string) int {
+	if a == b {
+		return 0
+	}
+	parse := func(s string) []int {
+		s = strings.TrimPrefix(strings.TrimSpace(s), "v")
+		parts := strings.FieldsFunc(s, func(r rune) bool { return r == '.' || r == '-' || r == '_' })
+		out := make([]int, 0, len(parts))
+		for _, p := range parts {
+			var num int
+			n, _ := fmt.Sscanf(p, "%d", &num)
+			if n == 1 {
+				out = append(out, num)
+			} else {
+				// try to extract leading digits
+				digits := ""
+				for _, ch := range p {
+					if ch >= '0' && ch <= '9' {
+						digits += string(ch)
+					} else {
+						break
+					}
+				}
+				if digits != "" {
+					fmt.Sscanf(digits, "%d", &num)
+					out = append(out, num)
+				}
+			}
+		}
+		return out
+	}
+	pa := parse(a)
+	pb := parse(b)
+	max := len(pa)
+	if len(pb) > max {
+		max = len(pb)
+	}
+	for i := 0; i < max; i++ {
+		var va, vb int
+		if i < len(pa) {
+			va = pa[i]
+		}
+		if i < len(pb) {
+			vb = pb[i]
+		}
+		if va > vb {
+			return 1
+		}
+		if va < vb {
+			return -1
+		}
+	}
+	return 0
+}
+
+// appendUpdateWarnings consults the network for latest releases and appends health warnings
+// if installed versions are behind the latest release.
+func appendUpdateWarnings(health []HealthMsg, about AboutInfo) []HealthMsg {
+	// If running offline or no net available, don't block; attempt best-effort fetch.
+	// Check yt-dlp
+	if yv := strings.TrimSpace(about.YtdlpVersion); yv != "" && yv != "Not found" {
+		if tag, err := fetchLatestGithubReleaseTag("yt-dlp/yt-dlp"); err == nil && tag != "" {
+			// normalize tag and installed
+			if compareVersion(tag, yv) > 0 {
+				health = append(health, HealthMsg{Message: fmt.Sprintf("yt-dlp update available: installed=%s latest=%s", yv, tag), Source: "yt-dlp", Level: "warning"})
+			}
+		}
+	} else {
+		health = append(health, HealthMsg{Message: "yt-dlp is not installed", Source: "yt-dlp", Level: "warning"})
+	}
+
+	// Check ffmpeg (ffmpeg/ffmpeg)
+	if fv := strings.TrimSpace(about.FfmpegVersion); fv != "" && fv != "Not found" {
+		if tag, err := fetchLatestGithubReleaseTag("ffmpeg/ffmpeg"); err == nil && tag != "" {
+			if compareVersion(tag, fv) > 0 {
+				health = append(health, HealthMsg{Message: fmt.Sprintf("ffmpeg update available: installed=%s latest=%s", fv, tag), Source: "ffmpeg", Level: "warning"})
+			}
+		}
+	} else {
+		health = append(health, HealthMsg{Message: "ffmpeg is not installed", Source: "ffmpeg", Level: "warning"})
+	}
+
+	return health
+}
 
 // StartTime records the process start time for uptime calculations.
 var StartTime = time.Now()
@@ -90,6 +225,8 @@ func SystemStatusHandler() gin.HandlerFunc {
 			YtdlpVersion:     getYtdlpVersion(),
 			FfmpegVersion:    getFfmpegVersion(),
 		}
+		// Add update warnings for yt-dlp/ffmpeg (best effort with caching)
+		health = appendUpdateWarnings(health, about)
 
 		more := map[string]string{
 			"source": "https://github.com/trailarr/trailarr",
