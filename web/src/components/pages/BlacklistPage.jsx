@@ -10,6 +10,10 @@ import { isDark } from "../../utils/isDark";
 // Helper to normalize reason string for grouping (moved to outer scope)
 function normalizeReason(reason) {
   if (!reason) return "Other";
+  const rl = reason.toLowerCase();
+  if (rl.includes("conversion") || rl.includes("convert")) {
+    return "Conversion Failed";
+  }
   if (reason.includes("Private video. Sign in if you")) {
     return "Private video. Sign in if you've been granted access to this video.";
   }
