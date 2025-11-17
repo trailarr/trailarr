@@ -131,6 +131,8 @@ type ExtrasEntry struct {
 	Reason     string    `json:"reason,omitempty"`
 }
 
+// Note: JSON marshalling uses the `reason` json tag; do not duplicate keys.
+
 // MarkRejectedExtrasInMemory sets Status="rejected" for extras whose YoutubeId is in rejectedYoutubeIds (in-memory only)
 func MarkRejectedExtrasInMemory(extras []Extra, rejectedYoutubeIds map[string]struct{}) {
 	for i := range extras {

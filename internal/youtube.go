@@ -734,6 +734,8 @@ type RejectedExtra struct {
 	Reason     string    `json:"reason"`
 }
 
+// Note: JSON marshalling uses the `reason` json tag; do not duplicate keys.
+
 // DownloadYouTubeExtra downloads the specified YouTube extra (trailer/clip)
 // for the given media and returns metadata about the downloaded file. If
 // forceDownload is provided and true, an existing file may be re-downloaded.
