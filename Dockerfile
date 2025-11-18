@@ -17,13 +17,13 @@ RUN make build
 
 # Final image
 FROM ubuntu:22.04
+WORKDIR /app
 RUN apt-get update && apt-get install -y ca-certificates python3 python3-pip wget xz-utils \
     && rm -rf /var/lib/apt/lists/* \
     && wget -q -O - https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-lgpl.tar.xz \
      | tar -xJ -C /app --strip-components=1 --wildcards '*/ffmpeg' '*/ffprobe' \
     && pip3 install --no-cache-dir yt-dlp curl_cffi
 
-WORKDIR /app
 COPY --from=go-builder /app/bin/trailarr /app/bin/trailarr
 
 EXPOSE 8080
