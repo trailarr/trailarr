@@ -241,6 +241,13 @@ func chooseFfmpegAsset(assets []struct {
 // updateYtdlp performs the download and installation of the latest yt-dlp release.
 // It returns an error if anything fails.
 func updateYtdlp() error {
+	// First try popular package managers (pip) to install/update yt-dlp
+	if err := installYtDlpViaPip(); err == nil {
+		TrailarrLog(INFO, "SystemUpdate", "yt-dlp updated via pip/py - using %s", YtDlpPath)
+		return nil
+	} else {
+		TrailarrLog(DEBUG, "SystemUpdate", "pip-based yt-dlp update failed or not available: %v; falling back to asset download", err)
+	}
 	// Fetch latest release metadata
 	timeout, err := GetYtDlpDownloadTimeout()
 	if err != nil {
@@ -335,6 +342,83 @@ func updateYtdlp() error {
 	}
 	// remove backup on success
 	_ = os.Remove(backup)
+	return nil
+}
+
+// installYtDlpViaPip attempts to use pip3 or python3 -m pip to install/upgrade
+// yt-dlp and curl_cffi. On success, it attempts to resolve the installed
+// binary location and set YtDlpPath accordingly. Returns an error if pip or
+// python isn't found or installation fails.
+func installYtDlpViaPip() error {
+	// Try directly invoking pip3, then python3 -m pip, then python -m pip
+	var cmdName string
+	var args []string
+	if p, err := exec.LookPath("pip3"); err == nil {
+		cmdName = p
+		args = []string{"install", "--upgrade", "yt-dlp", "curl_cffi"}
+	} else if p, err := exec.LookPath("python3"); err == nil {
+		cmdName = p
+		args = []string{"-m", "pip", "install", "--upgrade", "yt-dlp", "curl_cffi"}
+	} else if p, err := exec.LookPath("python"); err == nil {
+		cmdName = p
+		args = []string{"-m", "pip", "install", "--upgrade", "yt-dlp", "curl_cffi"}
+	} else {
+		return fmt.Errorf("pip3 or python not found in PATH")
+	}
+
+	cmd := exec.Command(cmdName, args...)
+	// Inherit standard env; user may supply proxies etc.
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("pip install failed: %v: %s", err, strings.TrimSpace(string(out)))
+	}
+
+	// Attempt to resolve binary location
+	if p, err := exec.LookPath(YtDlpCmd); err == nil {
+		YtDlpPath = p
+		return nil
+	}
+
+	// If not in PATH, try to use python to find script location using shutil.which
+	if p, err := exec.LookPath("python3"); err == nil {
+		pyCmd := exec.Command(p, "-c", "import shutil; import sys; p = shutil.which(\"yt-dlp\") or ''; sys.stdout.write(p)")
+		if out2, err := pyCmd.CombinedOutput(); err == nil {
+			pp := strings.TrimSpace(string(out2))
+			if pp != "" {
+				YtDlpPath = pp
+				return nil
+			}
+		}
+	}
+	if p, err := exec.LookPath("python"); err == nil {
+		pyCmd := exec.Command(p, "-c", "import shutil; import sys; p = shutil.which(\"yt-dlp\") or ''; sys.stdout.write(p)")
+		if out2, err := pyCmd.CombinedOutput(); err == nil {
+			pp := strings.TrimSpace(string(out2))
+			if pp != "" {
+				YtDlpPath = pp
+				return nil
+			}
+		}
+	}
+
+	// Finally, as a best-effort, attempt to find in typical pip user base script locations
+	// (e.g. ~/.local/bin) if exec.LookPath failed due to PATH differences.
+	home, _ := os.UserHomeDir()
+	if home != "" {
+		candidate := filepath.Join(home, ".local", "bin", YtDlpCmd)
+		if runtime.GOOS == "windows" {
+			candidate += ".exe"
+		}
+		if fi, err := os.Stat(candidate); err == nil && !fi.IsDir() {
+			YtDlpPath = candidate
+			return nil
+		}
+	}
+
+	// Not found but pip install succeeded; give up but return success to indicate
+	// installation likely worked for the user PATH. The runtime invocations still
+	// use the globally resolved `YtDlpPath` when executing; callers should pick up
+	// the binary via PATH lookup in the runner if configured.
 	return nil
 }
 

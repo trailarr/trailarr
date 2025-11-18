@@ -17,8 +17,10 @@ RUN make build
 
 # Final image
 FROM ubuntu:22.04
-RUN apt-get update && apt-get install -y ca-certificates wget xz-utils \
-    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+RUN apt-get update && apt-get install -y ca-certificates python3 python3-pip wget xz-utils \
+	&& rm -rf /var/lib/apt/lists/* \
+	&& pip3 install --no-cache-dir yt-dlp curl_cffi
 
 COPY --from=go-builder /app/bin/trailarr /app/bin/trailarr
 
