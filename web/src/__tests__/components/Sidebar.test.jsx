@@ -2,6 +2,7 @@ import React from "react";
 import { render, screen } from "@testing-library/react";
 import { vi } from "vitest";
 import Sidebar from "../../components/layout/Sidebar";
+import SidebarDesktop from "../../components/layout/SidebarDesktop";
 import { MemoryRouter } from "react-router-dom";
 
 describe("Sidebar wanted submenu selection", () => {
@@ -67,5 +68,44 @@ describe("Sidebar wanted submenu selection", () => {
       seriesLink.style.fontWeight === "bold" ||
         seriesLink.style.fontWeight === "700",
     ).toBe(true);
+  });
+
+  test("menu and submenu counters have same styling properties", () => {
+    // Main (collapsed system menu) counter
+    const mainProps = {
+      selectedSection: "",
+      selectedSettingsSub: "",
+      selectedWantedSub: "",
+      selectedSystemSub: "",
+      isOpen: () => false,
+      handleToggle: () => {},
+      healthCount: 3,
+      hasHealthError: false,
+    };
+    const { container: c1 } = render(
+      <MemoryRouter initialEntries={["/"]}>
+        <SidebarDesktop {...mainProps} />
+      </MemoryRouter>,
+    );
+    const mainBadge = c1.querySelector('[aria-label="3 health issues"]');
+    expect(mainBadge).not.toBeNull();
+    const mainStyle = window.getComputedStyle(mainBadge);
+
+    // Submenu (open system menu) counter
+    const subProps = { ...mainProps, isOpen: (n) => n === "System" };
+    const { container: c2 } = render(
+      <MemoryRouter initialEntries={["/"]}>
+        <SidebarDesktop {...subProps} />
+      </MemoryRouter>,
+    );
+    const subBadge = c2.querySelector('[aria-label="3 health issues"]');
+    expect(subBadge).not.toBeNull();
+    const subStyle = window.getComputedStyle(subBadge);
+
+    // Compare key style props (color/size)
+    expect(mainStyle.backgroundColor).toBe(subStyle.backgroundColor);
+    expect(mainStyle.width).toBe(subStyle.width);
+    expect(mainStyle.height).toBe(subStyle.height);
+    expect(mainStyle.fontSize).toBe(subStyle.fontSize);
   });
 });

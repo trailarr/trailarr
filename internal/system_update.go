@@ -101,18 +101,9 @@ func updateFfmpeg() error {
 	}
 	defer func() { tmpFile.Close(); _ = os.Remove(tmpFile.Name()) }()
 
-	dlReq, _ := http.NewRequestWithContext(context.Background(), "GET", assetURL, nil)
-	dlReq.Header.Set("User-Agent", "trailarr")
-	dlResp, err := client.Do(dlReq)
-	if err != nil {
-		return fmt.Errorf("failed to download asset: %w", err)
-	}
-	defer dlResp.Body.Close()
-	if dlResp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected response from github asset: %s", dlResp.Status)
-	}
-	if _, err := io.Copy(tmpFile, dlResp.Body); err != nil {
-		return fmt.Errorf("failed to write asset to temp file: %w", err)
+	// Download asset with increased timeout and retries
+	if err := downloadAssetToFile(assetURL, tmpFile, 10*time.Minute); err != nil {
+		return err
 	}
 	if runtime.GOOS != "windows" {
 		_ = tmpFile.Chmod(0755)
@@ -288,18 +279,9 @@ func updateYtdlp() error {
 		_ = os.Remove(tmpFile.Name())
 	}()
 
-	dlReq, _ := http.NewRequestWithContext(context.Background(), "GET", assetURL, nil)
-	dlReq.Header.Set("User-Agent", "trailarr")
-	dlResp, err := client.Do(dlReq)
-	if err != nil {
-		return fmt.Errorf("failed to download asset: %w", err)
-	}
-	defer dlResp.Body.Close()
-	if dlResp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected response from github asset: %s", dlResp.Status)
-	}
-	if _, err := io.Copy(tmpFile, dlResp.Body); err != nil {
-		return fmt.Errorf("failed to write asset to temp file: %w", err)
+	// Download asset with increased timeout and retries
+	if err := downloadAssetToFile(assetURL, tmpFile, 5*time.Minute); err != nil {
+		return err
 	}
 
 	// Ensure executable bit
@@ -597,4 +579,57 @@ func extractAndInstall(tmpFile, dest string) error {
 	}
 	// Not an archive: treat as raw binary
 	return installBinary(tmpFile, dest)
+}
+
+// downloadAssetToFile downloads a URL into the provided destination file. It
+// performs a number of retries with exponential backoff and uses a custom
+// timeout for the transfer to avoid small default timeouts failing large
+// assets (e.g. ffmpeg tarballs). The caller must ensure dest is an open file
+// for writing and will receive the file pointer at the end of the download.
+func downloadAssetToFile(assetURL string, dest *os.File, timeout time.Duration) error {
+	const attempts = 3
+	for i := 0; i < attempts; i++ {
+		client := &http.Client{Timeout: timeout}
+		req, _ := http.NewRequestWithContext(context.Background(), "GET", assetURL, nil)
+		req.Header.Set("User-Agent", "trailarr")
+		resp, err := client.Do(req)
+		if err != nil {
+			TrailarrLog(WARN, "SystemUpdate", "download attempt %d failed for %s: %v", i+1, assetURL, err)
+			time.Sleep(time.Duration(1<<i) * time.Second)
+			continue
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			resp.Body.Close()
+			// Non-recoverable responses like 404/403 should bail out quickly
+			if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusForbidden {
+				return fmt.Errorf("unexpected response from github asset: %s", resp.Status)
+			}
+			TrailarrLog(WARN, "SystemUpdate", "download attempt %d got non-OK status %s for %s", i+1, resp.Status, assetURL)
+			time.Sleep(time.Duration(1<<i) * time.Second)
+			continue
+		}
+
+		// Ensure we're writing at the start of the file and truncated, in
+		// case of retries where the temp file may contain partial data.
+		if _, err := dest.Seek(0, io.SeekStart); err != nil {
+			resp.Body.Close()
+			return fmt.Errorf("failed to seek temp file: %w", err)
+		}
+		if err := dest.Truncate(0); err != nil {
+			resp.Body.Close()
+			return fmt.Errorf("failed to truncate temp file: %w", err)
+		}
+
+		if _, err := io.Copy(dest, resp.Body); err != nil {
+			TrailarrLog(WARN, "SystemUpdate", "write attempt %d failed for %s: %v", i+1, assetURL, err)
+			resp.Body.Close()
+			time.Sleep(time.Duration(1<<i) * time.Second)
+			continue
+		}
+		// success
+		resp.Body.Close()
+		return nil
+	}
+	return fmt.Errorf("failed to download asset after %d attempts", attempts)
 }
