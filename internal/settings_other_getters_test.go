@@ -15,6 +15,8 @@ func TestGetYtdlpFlagsConfigReadsFromDiskWhenConfigNil(t *testing.T) {
 	// overwrite our intended value on CI.
 	content := []byte("ytdlpFlags:\n  quiet: true\nradarr:\n  url: http://localhost:7878\n  apiKey: \"\"\n  pathMappings: []\nsonarr:\n  url: http://localhost:8989\n  apiKey: \"\"\n  pathMappings: []\n")
 	WriteConfig(t, content)
+	// Ensure package-level in-memory Config isn't used so helpers read from disk
+	Config = nil
 	// Debug: log the written config file contents to help CI debugging
 	if b, err := os.ReadFile(GetConfigPath()); err == nil {
 		t.Logf("wrote config to %s: %s", GetConfigPath(), string(b))
@@ -78,6 +80,8 @@ func TestGetPathMappingsAndProviderUrlApiKey(t *testing.T) {
 		t.Fatalf("unexpected path mappings: %v", mappings)
 	}
 
+	// Force reading from disk rather than in-memory cache which can be stale
+	Config = nil
 	url, apiKey, err := GetProviderUrlAndApiKey("radarr")
 	if err != nil {
 		t.Fatalf("GetProviderUrlAndApiKey returned error: %v", err)

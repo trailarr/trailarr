@@ -98,6 +98,9 @@ func WriteConfig(t *testing.T, content []byte) {
 		} else {
 			t.Logf("WriteConfig: stat failed for %s: %v", GetConfigPath(), err)
 		}
+		// Ensure any package-level in-memory config is invalidated so subsequent
+		// calls read from disk and do not rely on stale cache values.
+		Config = nil
 	}
 }
 

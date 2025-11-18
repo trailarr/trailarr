@@ -20,7 +20,7 @@ Add new tasks below as needed:
 - [x] Logs must be numbered
 - [x] rejected file must be match using youtube id
 - [x] rename RouteMap.jsx to RouteMap.jsx
-- [ ] yt-dlp Download Flags is not being save
+- [x] yt-dlp Download Flags is not being save
 - [ ] enable autodownload require restart
 - [x] force tasks icon must keep rolling while task is running
 - [x] history must show tasks downloads
@@ -30,3 +30,5 @@ Add new tasks below as needed:
 - [x] rejecte extra on over must show reason
 - [x] remove youtube doppler effect
 - [ ] add support to force refresh metadata on plex series
+- [ ] install yt-dlp from github on docker
+- [ ] fix youtube play button
