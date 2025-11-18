@@ -10,13 +10,12 @@ import { isDark } from "../../utils/isDark";
 // Helper to normalize reason string for grouping (moved to outer scope)
 function normalizeReason(reason) {
   if (!reason) return "Other";
-  const rl = reason.toLowerCase();
-  if (rl.includes("conversion") || rl.includes("convert")) {
-    return "Conversion Failed";
-  }
+  // Extract main error type for grouping
+  // 1. Private video
   if (reason.includes("Private video. Sign in if you")) {
     return "Private video. Sign in if you've been granted access to this video.";
   }
+  // 2. Not available in your country
   if (
     reason.includes(
       "The uploader has not made this video available in your country",
@@ -24,19 +23,28 @@ function normalizeReason(reason) {
   ) {
     return "The uploader has not made this video available in your country.";
   }
+  // 3. Age-restricted video
   if (reason.includes("Sign in to confirm your age.")) {
     return "Sign in to confirm your age.";
   }
+  // 4. Did not get any data blocks
   if (reason.includes("Did not get any data blocks")) {
     return "Did not get any data blocks";
   }
+  // 5. Conversion Failed
+  if (reason.includes("Conversion Failed")) {
+    return "Conversion Failed";
+  }
+  // 6. Fallback: first line of error
   const firstLine = reason.split("\n")[0];
+  // Remove YouTube ID and video ID
   return firstLine
     .replace(/\[youtube\] [\w-]+:/, "[youtube] <id>:")
     .replace(/ERROR: \[youtube\] [\w-]+:/, "ERROR: [youtube] <id>:")
     .trim();
 }
 
+// Subcomponent to render a single group item (reduces nesting in main render)
 function BlacklistGroupItem({ item, idx, setYoutubeModal, setBlacklist }) {
   const extra = {
     ExtraTitle: item.extraTitle || "",
@@ -45,6 +53,7 @@ function BlacklistGroupItem({ item, idx, setYoutubeModal, setBlacklist }) {
     reason: item.reason || item.message || "",
     Status: item.Status || item.status || "",
   };
+  // Ensure `media` matches the shape expected by ExtraCard (media.id)
   const media = {
     id: item.mediaId ? Number(item.mediaId) : 0,
     title: item.mediaTitle || "",
@@ -67,6 +76,8 @@ function BlacklistGroupItem({ item, idx, setYoutubeModal, setBlacklist }) {
         typeExtras={[]}
         media={media}
         mediaType={mediaType}
+        // Pass the page-level setter so ExtraCard's unban handler can refresh
+        // the blacklist state after removing an item.
         setExtras={setBlacklist}
         setModalMsg={() => {}}
         setShowModal={() => {}}
@@ -119,6 +130,7 @@ BlacklistGroupItem.propTypes = {
   setBlacklist: PropTypes.func.isRequired,
 };
 
+// Helper to mark a blacklist item as downloaded
 function markBlacklistItemDownloaded(prev, youtubeId) {
   if (!prev) return prev;
   const update = (arr) =>
@@ -134,6 +146,7 @@ function markBlacklistItemDownloaded(prev, youtubeId) {
   return updated;
 }
 
+// Helper to update blacklist items with queue status
 function updateBlacklistWithQueue(prev, queue) {
   if (!prev) return prev;
   const update = (arr) =>
@@ -150,6 +163,7 @@ function updateBlacklistWithQueue(prev, queue) {
   return updated;
 }
 
+// Helper to preload images (outer scope)
 function preloadImages(urls) {
   return Promise.all(
     urls.map(
@@ -197,6 +211,7 @@ export default function BlacklistPage() {
       });
   }, []);
 
+  // WebSocket for real-time blacklist status
   const wsRef = useRef(null);
   useEffect(() => {
     const wsUrl =
@@ -229,8 +244,15 @@ export default function BlacklistPage() {
     };
   }, []);
 
+  // Close modal on Escape/Enter key globally when youtube modal is open.
+  const closeBtnRef = useRef(null);
+
   useEffect(() => {
     if (!youtubeModal.open) return undefined;
+    // Focus the overlay close element so keyboard users can interact
+    if (closeBtnRef.current && typeof closeBtnRef.current.focus === "function") {
+      closeBtnRef.current.focus();
+    }
     const handler = (e) => {
       if (e.key === "Escape" || e.key === "Enter") {
         setYoutubeModal({ open: false, videoId: "" });
@@ -276,6 +298,7 @@ export default function BlacklistPage() {
   if (!blacklist || (Array.isArray(blacklist) && blacklist.length === 0))
     return <div className="no-items">No blacklisted extras found.</div>;
 
+  // Normalize to array for rendering
   let items = null;
   if (Array.isArray(blacklist)) items = blacklist;
   else if (blacklist && typeof blacklist === "object")
@@ -290,6 +313,7 @@ export default function BlacklistPage() {
     );
   }
 
+  // Group items by normalized reason
   const groups = {};
   for (const item of items) {
     const rawReason = item.reason || item.message || "Other";
@@ -354,12 +378,23 @@ export default function BlacklistPage() {
       })}
 
       {youtubeModal.open && youtubeModal.videoId && (
-        <dialog open aria-modal="true" className="blacklist-youtube-backdrop">
+        <dialog
+          open
+          aria-modal="true"
+          className="blacklist-youtube-backdrop"
+          // If the user clicks directly on the backdrop (outside the modal),
+          // close the modal. Use onMouseDown to ensure the event fires before
+          // focus changes inside the dialog.
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setYoutubeModal({ open: false, videoId: "" });
+          }}
+        >
           <button
             type="button"
             aria-label="Close video"
             className="blacklist-youtube-backdrop-btn"
             onClick={() => setYoutubeModal({ open: false, videoId: "" })}
+            ref={closeBtnRef}
           />
           <div className="blacklist-youtube-modal" aria-label="YouTube video">
             <YoutubePlayer videoId={youtubeModal.videoId} />

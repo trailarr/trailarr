@@ -2,15 +2,16 @@ import React, { useEffect, useRef } from "react";
 import PropTypes from "prop-types";
 import YoutubePlayer from "./YoutubePlayer.jsx";
 
+// Accessible modal dedicated to Youtube playback. Handles Escape key,
+// backdrop activation, and moves focus into the dialog when opened.
 export default function YoutubeModal({ open, videoId, onClose }) {
   const closeBtnRef = useRef(null);
   const contentRef = useRef(null);
+
   useEffect(() => {
     if (!open) return;
-    if (
-      closeBtnRef.current &&
-      typeof closeBtnRef.current.focus === "function"
-    ) {
+    // Focus the close button when modal opens for keyboard users
+    if (closeBtnRef.current && typeof closeBtnRef.current.focus === "function") {
       closeBtnRef.current.focus();
     }
     const handleKey = (e) => {
@@ -19,7 +20,9 @@ export default function YoutubeModal({ open, videoId, onClose }) {
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
   }, [open, onClose]);
+
   if (!open || !videoId) return null;
+
   return (
     <div
       aria-modal="true"
@@ -27,6 +30,8 @@ export default function YoutubeModal({ open, videoId, onClose }) {
       className="md-youtube-modal-backdrop youtube-modal-backdrop"
       role="dialog"
     >
+      {/* Invisible full-viewport button to provide a real interactive target
+          for backdrop clicks/keyboard activation. */}
       <button
         type="button"
         aria-label="Close YouTube modal"
@@ -44,11 +49,8 @@ export default function YoutubeModal({ open, videoId, onClose }) {
           margin: 0,
         }}
       />
-      <div
-        className="md-youtube-modal-content"
-        role="document"
-        ref={contentRef}
-      >
+
+      <div className="md-youtube-modal-content" role="document" ref={contentRef}>
         <YoutubePlayer videoId={videoId} />
       </div>
     </div>
