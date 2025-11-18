@@ -245,7 +245,45 @@ func DefaultGeneralConfig() map[string]interface{} {
 		// keep default pointing at the local dev frontend so devs don't need
 		// to set it explicitly.
 		"frontendUrl": DefaultFrontendURL,
+		// trustedProxies controls the CIDRs Gin trusts when determining the
+		// client IP via forwarded headers. For security we default to
+		// trusting only the loopback interface. Administrators may override
+		// this in config.yml to add their reverse proxy networks.
+		"trustedProxies": []string{"127.0.0.1"},
 	}
+}
+
+// GetTrustedProxies returns the list of CIDRs configured for trusted proxies.
+// If not present in config it returns the default of only loopback.
+func GetTrustedProxies() ([]string, error) {
+	cfg, err := readConfigFile()
+	if err != nil {
+		// Return default if we can't read config
+		return []string{"127.0.0.1"}, nil
+	}
+	general, ok := cfg["general"].(map[string]interface{})
+	if !ok || general == nil {
+		return []string{"127.0.0.1"}, nil
+	}
+	if v, ok := general["trustedProxies"]; ok {
+		switch t := v.(type) {
+		case []interface{}:
+			var res []string
+			for _, e := range t {
+				if s, ok := e.(string); ok {
+					res = append(res, s)
+				}
+			}
+			if len(res) > 0 {
+				return res, nil
+			}
+		case []string:
+			if len(t) > 0 {
+				return t, nil
+			}
+		}
+	}
+	return []string{"127.0.0.1"}, nil
 }
 
 // normalizeYAML recursively converts maps with non-string keys (which can be

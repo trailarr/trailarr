@@ -57,6 +57,16 @@ func main() {
 	}
 	internal.TrailarrLog(internal.DEBUG, "Startup", "Loaded GlobalTaskStates: %+v", internal.GlobalTaskStates)
 	r := gin.Default()
+	// Configure trusted proxies to avoid Gin warning about trusting all proxies.
+	if proxies, err := internal.GetTrustedProxies(); err == nil {
+		if err2 := r.SetTrustedProxies(proxies); err2 != nil {
+			internal.TrailarrLog(internal.WARN, "Startup", "Failed to set trusted proxies: %v", err2)
+		} else {
+			internal.TrailarrLog(internal.INFO, "Startup", "Set TrustedProxies: %v", strings.Join(proxies, ","))
+		}
+	} else {
+		internal.TrailarrLog(internal.WARN, "Startup", "Unable to read trusted proxies config; using default loopback only: %v", err)
+	}
 	internal.RegisterRoutes(r)
 	go internal.StartBackgroundTasks()
 	r.Run(":8080")

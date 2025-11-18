@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"path/filepath"
 	"reflect"
 	"testing"
 )
@@ -64,5 +65,40 @@ func TestGetEnabledCanonicalExtraTypes(t *testing.T) {
 	got = GetEnabledCanonicalExtraTypes(cfg)
 	if len(got) != 1 {
 		t.Fatalf("expected single trailer type when trailers enabled, got %v", got)
+	}
+}
+
+func TestGetTrustedProxies_DefaultAndConfig(t *testing.T) {
+	// Ensure defaults are written when missing
+	tmpDir := t.TempDir()
+	cfgPath := filepath.Join(tmpDir, "config.yml")
+	SetConfigPath(cfgPath)
+	// Ensure defaults are created
+	if err := EnsureConfigDefaults(); err != nil {
+		t.Fatalf("EnsureConfigDefaults: %v", err)
+	}
+	// Read proxies via helper
+	proxies, err := GetTrustedProxies()
+	if err != nil {
+		t.Fatalf("GetTrustedProxies returned error: %v", err)
+	}
+	if len(proxies) != 1 || proxies[0] != "127.0.0.1" {
+		t.Fatalf("Expected default proxies [127.0.0.1], got %v", proxies)
+	}
+	// Now write a config with a custom proxy and ensure it's returned
+	cfgMap := map[string]interface{}{
+		"general": map[string]interface{}{
+			"trustedProxies": []string{"10.0.0.0/8", "172.16.0.0/12"},
+		},
+	}
+	if err := writeConfigFile(cfgMap); err != nil {
+		t.Fatalf("writeConfigFile: %v", err)
+	}
+	proxies2, err := GetTrustedProxies()
+	if err != nil {
+		t.Fatalf("GetTrustedProxies after config returned error: %v", err)
+	}
+	if len(proxies2) != 2 || proxies2[0] != "10.0.0.0/8" {
+		t.Fatalf("Expected proxies from config, got %v", proxies2)
 	}
 }
