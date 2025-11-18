@@ -59,8 +59,33 @@ export default function ActorRow({ actors = [] }) {
               </svg>
             </div>
           )}
-          <span style={{ fontWeight: 500, fontSize: "0.68em", color: "#fff", whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden", maxWidth: 80, textAlign: "center" }}>{actor.name}</span>
-          <span style={{ fontSize: "0.60em", color: "#fff", whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden", maxWidth: 80, textAlign: "center" }}>{actor.character}</span>
+          <span
+            style={{
+              fontWeight: 500,
+              fontSize: "0.68em",
+              color: "#fff",
+              whiteSpace: "nowrap",
+              textOverflow: "ellipsis",
+              overflow: "hidden",
+              maxWidth: 80,
+              textAlign: "center",
+            }}
+          >
+            {actor.name}
+          </span>
+          <span
+            style={{
+              fontSize: "0.60em",
+              color: "#fff",
+              whiteSpace: "nowrap",
+              textOverflow: "ellipsis",
+              overflow: "hidden",
+              maxWidth: 80,
+              textAlign: "center",
+            }}
+          >
+            {actor.character}
+          </span>
         </div>
       ))}
     </div>

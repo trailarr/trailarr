@@ -62,7 +62,14 @@ export default function Sidebar({ mobile, open, onClose }) {
         const json = await res.json();
         if (cancelled) return;
         const hc = Array.isArray(json?.health) ? json.health.length : 0;
+        const hasError = Array.isArray(json?.health)
+          ? json.health.some(
+              (h) =>
+                (h.level || h.Level || "").toString().toLowerCase() === "error",
+            )
+          : false;
         setHealthCount(hc);
+        setHasHealthError(hasError);
       } catch (e) {
         console.error("Failed to load system status for sidebar:", e);
       }
@@ -77,6 +84,7 @@ export default function Sidebar({ mobile, open, onClose }) {
   const selectedWantedSub = getSelectedWantedSub(path);
 
   const [openMenus, setOpenMenus] = React.useState({});
+  const [hasHealthError, setHasHealthError] = React.useState(false);
   React.useEffect(() => {
     let menuToOpen = null;
     if (selectedSection === "Wanted") menuToOpen = "Wanted";
@@ -113,6 +121,7 @@ export default function Sidebar({ mobile, open, onClose }) {
         isOpen={isOpen}
         handleToggle={handleToggle}
         healthCount={healthCount}
+        hasHealthError={hasHealthError}
       />
     );
   }
@@ -125,6 +134,7 @@ export default function Sidebar({ mobile, open, onClose }) {
       isOpen={isOpen}
       handleToggle={handleToggle}
       healthCount={healthCount}
+      hasHealthError={hasHealthError}
     />
   );
 }

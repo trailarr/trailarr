@@ -16,7 +16,8 @@ export default function MediaList({ items, type, basePath, loading }) {
     });
   }, [items]);
 
-  const showEmptyBanner = Array.isArray(items) && items.length === 0 && !loading;
+  const showEmptyBanner =
+    Array.isArray(items) && items.length === 0 && !loading;
   const gridContent =
     !loading && items && items.length > 0 ? (
       <div
@@ -116,7 +117,9 @@ export default function MediaList({ items, type, basePath, loading }) {
               margin: "0 auto",
             }}
           >
-            <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 6 }}>No media found</div>
+            <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 6 }}>
+              No media found
+            </div>
             <div style={{ fontSize: 14, opacity: 0.85 }}>
               There are no items to show here. Try scanning your libraries,
               check your path mappings, or adjust filters.

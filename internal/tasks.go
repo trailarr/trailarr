@@ -1001,18 +1001,18 @@ func runHealthCheckTask() {
 
 	var issues []HealthMsg
 	if radarrURL == "" || radarrKey == "" {
-		issues = append(issues, HealthMsg{Message: "Radarr not configured (missing URL or API key)", Source: "Radarr", Level: "warning"})
+		issues = append(issues, HealthMsg{Message: "Radarr not configured (missing URL or API key)", Source: "Radarr", Level: "error"})
 	} else {
 		if err := testMediaConnection(radarrURL, radarrKey, "radarr"); err != nil {
-			issues = append(issues, HealthMsg{Message: fmt.Sprintf("Radarr connectivity failed: %v", err), Source: "Radarr", Level: "warning"})
+			issues = append(issues, HealthMsg{Message: fmt.Sprintf("Radarr connectivity failed: %v", err), Source: "Radarr", Level: "error"})
 		}
 	}
 
 	if sonarrURL == "" || sonarrKey == "" {
-		issues = append(issues, HealthMsg{Message: "Sonarr not configured (missing URL or API key)", Source: "Sonarr", Level: "warning"})
+		issues = append(issues, HealthMsg{Message: "Sonarr not configured (missing URL or API key)", Source: "Sonarr", Level: "error"})
 	} else {
 		if err := testMediaConnection(sonarrURL, sonarrKey, "sonarr"); err != nil {
-			issues = append(issues, HealthMsg{Message: fmt.Sprintf("Sonarr connectivity failed: %v", err), Source: "Sonarr", Level: "warning"})
+			issues = append(issues, HealthMsg{Message: fmt.Sprintf("Sonarr connectivity failed: %v", err), Source: "Sonarr", Level: "error"})
 		}
 	}
 

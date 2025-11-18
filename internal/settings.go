@@ -774,6 +774,7 @@ func ytdlpFlagSetters(cfg *YtdlpFlagsConfig) map[string]func(interface{}) {
 		"limitRate":        stringSetter(&cfg.LimitRate),
 		"sleepRequests":    floatSetter(&cfg.SleepRequests),
 		"maxSleepInterval": floatSetter(&cfg.MaxSleepInterval),
+		"ffmpegLocation":   stringSetter(&cfg.FfmpegLocation),
 	}
 }
 
@@ -797,6 +798,7 @@ func SaveYtdlpFlagsConfig(cfg YtdlpFlagsConfig) error {
 		"limitRate":        cfg.LimitRate,
 		"sleepRequests":    cfg.SleepRequests,
 		"maxSleepInterval": cfg.MaxSleepInterval,
+		"ffmpegLocation":   cfg.FfmpegLocation,
 	}
 	return writeConfigFile(config)
 }

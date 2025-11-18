@@ -182,8 +182,8 @@ export default function MediaInfoLane({
           // Use that when mediaType is 'tv' or 'series'; otherwise prefer `ratings.imdb.value`.
           const isSeries = mediaType === "tv" || mediaType === "series";
           const imdbRating = isSeries
-            ? media?.ratings?.value ?? media?.ratings?.imdb?.value
-            : media?.ratings?.imdb?.value ?? media?.ratings?.value;
+            ? (media?.ratings?.value ?? media?.ratings?.imdb?.value)
+            : (media?.ratings?.imdb?.value ?? media?.ratings?.value);
           if (!imdbRating) return null;
           // Build provider buttons to appear beside the rating
           const providerButtons = [];
@@ -201,7 +201,8 @@ export default function MediaInfoLane({
                 onClick={() => {
                   const base = providerUrl.replace(/\/$/, "");
                   // Prefer titleSlug for provider links; fall back to id or title
-                  const movieSlug = media?.titleSlug ?? media?.id ?? media?.title ?? "";
+                  const movieSlug =
+                    media?.titleSlug ?? media?.id ?? media?.title ?? "";
                   const url = `${base}/movie/${encodeURIComponent(movieSlug)}`;
                   window.open(url, "_blank", "noopener");
                 }}
@@ -222,7 +223,8 @@ export default function MediaInfoLane({
                 }
                 onClick={() => {
                   const base = providerUrl.replace(/\/$/, "");
-                  const seriesId = media?.titleSlug ?? media?.id ?? media?.title ?? "";
+                  const seriesId =
+                    media?.titleSlug ?? media?.id ?? media?.title ?? "";
                   const url = `${base}/series/${encodeURIComponent(seriesId)}`;
                   window.open(url, "_blank", "noopener");
                 }}
@@ -232,8 +234,15 @@ export default function MediaInfoLane({
           }
 
           return (
-            <div className="media-info-rating" aria-label={`IMDb rating ${imdbRating}`}>
-              <img src="/icons/imdb.svg" alt="IMDb" className="media-info-imdb-img" />
+            <div
+              className="media-info-rating"
+              aria-label={`IMDb rating ${imdbRating}`}
+            >
+              <img
+                src="/icons/imdb.svg"
+                alt="IMDb"
+                className="media-info-imdb-img"
+              />
               <span className="media-info-rating-value">{imdbRating}</span>
               {providerButtons.length > 0 && (
                 <div className="media-info-providers">{providerButtons}</div>

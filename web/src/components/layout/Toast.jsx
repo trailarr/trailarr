@@ -124,7 +124,13 @@ function ToastModal({
   );
 }
 
-function Toast({ message, onClose, autoClose = true, duration = 4000, success = false }) {
+function Toast({
+  message,
+  onClose,
+  autoClose = true,
+  duration = 4000,
+  success = false,
+}) {
   useEffect(() => {
     if (message && autoClose) {
       const timer = setTimeout(() => {

@@ -9,7 +9,14 @@ function MediaCard({ media, mediaType }) {
       ? `/mediacover/Series/${media.id}/poster-500.jpg`
       : `/mediacover/Movies/${media.id}/poster-500.jpg`;
   return (
-    <div style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center" }}>
+    <div
+      style={{
+        width: "100%",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+      }}
+    >
       <style>{`
         @media (max-width: 900px) {
           .media-card-poster {
@@ -72,9 +79,29 @@ function MediaCard({ media, mediaType }) {
           alt={media.title}
         />
       </div>
-      <div className="media-card-details" style={{ marginTop: 8, textAlign: "center", width: "100%", maxWidth: "220px", display: "none" }} title={media.title}>
-        <div style={{ color: isDark ? "#fff" : "#222", fontWeight: 600, fontSize: 14 }}>{media.title}</div>
-        <div style={{ color: isDark ? "#ddd" : "#666", fontSize: 12 }}>{media.year || media.airDate || ""}</div>
+      <div
+        className="media-card-details"
+        style={{
+          marginTop: 8,
+          textAlign: "center",
+          width: "100%",
+          maxWidth: "220px",
+          display: "none",
+        }}
+        title={media.title}
+      >
+        <div
+          style={{
+            color: isDark ? "#fff" : "#222",
+            fontWeight: 600,
+            fontSize: 14,
+          }}
+        >
+          {media.title}
+        </div>
+        <div style={{ color: isDark ? "#ddd" : "#666", fontSize: 12 }}>
+          {media.year || media.airDate || ""}
+        </div>
       </div>
       <style>{`@media (min-width: 901px) { .media-card-details { display: block!important; } }`}</style>
     </div>
@@ -82,7 +109,12 @@ function MediaCard({ media, mediaType }) {
 }
 
 MediaCard.propTypes = {
-  media: PropTypes.shape({ id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired, title: PropTypes.string, year: PropTypes.oneOfType([PropTypes.string, PropTypes.number]), airDate: PropTypes.oneOfType([PropTypes.string, PropTypes.number]) }).isRequired,
+  media: PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+    title: PropTypes.string,
+    year: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    airDate: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  }).isRequired,
   mediaType: PropTypes.string.isRequired,
 };
 

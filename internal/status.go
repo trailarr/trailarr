@@ -24,7 +24,6 @@ var latestReleaseCache = map[string]struct {
 }{}
 var latestReleaseTTL = 12 * time.Hour
 
-// fetchLatestGithubReleaseTag fetches the latest release tag for the given github repo (owner/repo)
 // It caches results for `latestReleaseTTL` to avoid frequent API calls.
 func fetchLatestGithubReleaseTag(repo string) (string, error) {
 	latestReleaseCacheMu.Lock()
@@ -129,22 +128,22 @@ func appendUpdateWarnings(health []HealthMsg, about AboutInfo) []HealthMsg {
 		if tag, err := fetchLatestGithubReleaseTag("yt-dlp/yt-dlp"); err == nil && tag != "" {
 			// normalize tag and installed
 			if compareVersion(tag, yv) > 0 {
-				health = append(health, HealthMsg{Message: fmt.Sprintf("yt-dlp update available: installed=%s latest=%s", yv, tag), Source: "yt-dlp", Level: "warning"})
+				health = append(health, HealthMsg{Message: "yt-dlp update available", Source: "yt-dlp", Level: "warning"})
 			}
 		}
 	} else {
-		health = append(health, HealthMsg{Message: "yt-dlp is not installed", Source: "yt-dlp", Level: "warning"})
+		health = append(health, HealthMsg{Message: "yt-dlp is not installed", Source: "yt-dlp", Level: "error"})
 	}
 
 	// Check ffmpeg (ffmpeg/ffmpeg)
 	if fv := strings.TrimSpace(about.FfmpegVersion); fv != "" && fv != "Not found" {
 		if tag, err := fetchLatestGithubReleaseTag("ffmpeg/ffmpeg"); err == nil && tag != "" {
 			if compareVersion(tag, fv) > 0 {
-				health = append(health, HealthMsg{Message: fmt.Sprintf("ffmpeg update available: installed=%s latest=%s", fv, tag), Source: "ffmpeg", Level: "warning"})
+				health = append(health, HealthMsg{Message: "ffmpeg update available", Source: "ffmpeg", Level: "warning"})
 			}
 		}
 	} else {
-		health = append(health, HealthMsg{Message: "ffmpeg is not installed", Source: "ffmpeg", Level: "warning"})
+		health = append(health, HealthMsg{Message: "ffmpeg is not installed", Source: "ffmpeg", Level: "error"})
 	}
 
 	return health
@@ -225,7 +224,10 @@ func SystemStatusHandler() gin.HandlerFunc {
 			YtdlpVersion:     getYtdlpVersion(),
 			FfmpegVersion:    getFfmpegVersion(),
 		}
-		// Add update warnings for yt-dlp/ffmpeg (best effort with caching)
+		// Add TMDB connectivity check (error-level) and update warnings for yt-dlp/ffmpeg (best effort with caching)
+		if tmdbHM := tmdbHealthCheck(); tmdbHM != nil {
+			health = append(health, *tmdbHM)
+		}
 		health = appendUpdateWarnings(health, about)
 
 		more := map[string]string{
@@ -251,22 +253,46 @@ func buildHealth(radarrURL, radarrKey, sonarrURL, sonarrKey string) []HealthMsg 
 	var health []HealthMsg
 	// Radarr: report only when misconfigured or unreachable. Do not append a "reachable" info message.
 	if radarrURL == "" || radarrKey == "" {
-		health = append(health, HealthMsg{Message: "Radarr not configured (missing URL or API key)", Source: "Radarr", Level: "warning"})
+		health = append(health, HealthMsg{Message: "Radarr not configured (missing URL or API key)", Source: "Radarr", Level: "error"})
 	} else {
 		if err := testMediaConnection(radarrURL, radarrKey, "radarr"); err != nil {
-			health = append(health, HealthMsg{Message: fmt.Sprintf("Radarr connectivity failed: %v", err), Source: "Radarr", Level: "warning"})
+			health = append(health, HealthMsg{Message: fmt.Sprintf("Radarr connectivity failed: %v", err), Source: "Radarr", Level: "error"})
 		}
 	}
 
 	// Sonarr: same behavior as Radarr — only report problems.
 	if sonarrURL == "" || sonarrKey == "" {
-		health = append(health, HealthMsg{Message: "Sonarr not configured (missing URL or API key)", Source: "Sonarr", Level: "warning"})
+		health = append(health, HealthMsg{Message: "Sonarr not configured (missing URL or API key)", Source: "Sonarr", Level: "error"})
 	} else {
 		if err := testMediaConnection(sonarrURL, sonarrKey, "sonarr"); err != nil {
-			health = append(health, HealthMsg{Message: fmt.Sprintf("Sonarr connectivity failed: %v", err), Source: "Sonarr", Level: "warning"})
+			health = append(health, HealthMsg{Message: fmt.Sprintf("Sonarr connectivity failed: %v", err), Source: "Sonarr", Level: "error"})
 		}
 	}
 	return health
+}
+
+// tmdbHealthCheck performs a best-effort check of TMDB configuration and connectivity.
+// If issues are detected, it returns a HealthMsg to append to the system health.
+func tmdbHealthCheck() *HealthMsg {
+	// If no key, report an error-level health message
+	if _, err := GetTMDBKey(); err != nil {
+		return &HealthMsg{Message: "TMDB not configured (missing API key)", Source: "TMDB", Level: "error"}
+	}
+	// If there is a key, perform a quick config check so that connectivity problems are surfaced
+	key, _ := GetTMDBKey()
+	client := &http.Client{Timeout: 5 * time.Second}
+	url := fmt.Sprintf("https://api.themoviedb.org/3/configuration?api_key=%s", key)
+	req, _ := http.NewRequestWithContext(context.Background(), "GET", url, nil)
+	req.Header.Set("User-Agent", "trailarr")
+	resp, err := client.Do(req)
+	if err != nil {
+		return &HealthMsg{Message: fmt.Sprintf("TMDB connectivity failed: %v", err), Source: "TMDB", Level: "error"}
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return &HealthMsg{Message: fmt.Sprintf("TMDB connectivity failed: %s", resp.Status), Source: "TMDB", Level: "error"}
+	}
+	return nil
 }
 
 func buildPathSet(radarrURL, radarrKey, sonarrURL, sonarrKey string) map[string]bool {
@@ -341,7 +367,7 @@ func getModuleVersion() string {
 }
 
 func getYtdlpVersion() string {
-	if out, err := ytDlpRunner.CombinedOutput(YtDlpCmd, []string{"--version"}, ""); err == nil {
+	if out, err := ytDlpRunner.CombinedOutput(YtDlpPath, []string{"--version"}, ""); err == nil {
 		return strings.TrimSpace(string(out))
 	}
 	return ""
@@ -349,15 +375,34 @@ func getYtdlpVersion() string {
 
 func getFfmpegVersion() string {
 	// Prefer returning a friendly "Not found" if ffmpeg is not available.
-	if _, err := exec.LookPath("ffmpeg"); err != nil {
-		return "Not found"
+	// First, check configured FfmpegPath (TrailarrRoot/bin/ffmpeg) then fallback to PATH lookup.
+	if FfmpegPath != "" {
+		if fi, err := os.Stat(FfmpegPath); err == nil && !fi.IsDir() {
+			// use configured path
+		} else {
+			// Not found at configured path; fallback to PATH
+			if _, err := exec.LookPath("ffmpeg"); err != nil {
+				return "Not found"
+			}
+		}
+	} else {
+		if _, err := exec.LookPath("ffmpeg"); err != nil {
+			return "Not found"
+		}
 	}
 
 	// Use a short timeout to avoid hanging if ffmpeg misbehaves.
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "ffmpeg", "-version")
+	// prefer configured ffmpeg path when available
+	cmdName := "ffmpeg"
+	if FfmpegPath != "" {
+		if fi, err := os.Stat(FfmpegPath); err == nil && !fi.IsDir() {
+			cmdName = FfmpegPath
+		}
+	}
+	cmd := exec.CommandContext(ctx, cmdName, "-version")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return ""

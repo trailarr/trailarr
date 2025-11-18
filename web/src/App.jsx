@@ -12,18 +12,19 @@ import Tasks from "./components/pages/Tasks.jsx";
 import HistoryPage from "./components/pages/HistoryPage.jsx";
 import Wanted from "./components/pages/Wanted.jsx";
 import BlacklistPage from "./components/pages/BlacklistPage.jsx";
-const ProviderSettingsPage = lazy(() => import("./components/pages/ProviderSettingsPage"));
-const ExtrasSettings = lazy(() => import("./components/settings/ExtrasSettings"));
-const YtdlpFlagsSettings = lazy(() => import("./components/settings/YtdlpFlagsSettings"));
+const ProviderSettingsPage = lazy(
+  () => import("./components/pages/ProviderSettingsPage"),
+);
+const ExtrasSettings = lazy(
+  () => import("./components/settings/ExtrasSettings"),
+);
+const YtdlpFlagsSettings = lazy(
+  () => import("./components/settings/YtdlpFlagsSettings"),
+);
 const PlexSettings = lazy(() => import("./components/settings/PlexSettings"));
 import LogsPage from "./components/pages/LogsPage.jsx";
 import StatusPage from "./components/pages/StatusPage.jsx";
-import {
-  getSeries,
-  getMovies,
-  getMoviesWanted,
-  getSeriesWanted,
-} from "./api";
+import { getSeries, getMovies, getMoviesWanted, getSeriesWanted } from "./api";
 import { getSearchSections as _getSearchSections } from "./utils/search";
 import ErrorBoundary from "./components/layout/ErrorBoundary.jsx";
 import { isDark } from "./utils/isDark";
@@ -277,7 +278,8 @@ function App() {
               color: isDark ? "#e5e7eb" : "#222",
               marginLeft: window.innerWidth > 900 ? 220 : 0,
               marginTop: 64,
-            }}>
+            }}
+          >
             <Routes>
               <Route
                 path="/series"

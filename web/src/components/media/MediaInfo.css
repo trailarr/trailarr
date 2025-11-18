@@ -190,7 +190,7 @@
   /* no shadow */
   letter-spacing: 0.1px; /* reduced letter spacing */
   /* Use IMDb logo font if available; falls back to UI fonts otherwise */
-  font-family: 'IMDbLogo', "Helvetica Neue", Arial, sans-serif;
+  font-family: "IMDbLogo", "Helvetica Neue", Arial, sans-serif;
 }
 
 .media-info-imdb-img {

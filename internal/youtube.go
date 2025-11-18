@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -25,6 +26,24 @@ const (
 	ytDlpSearchPrefix = "ytsearch10:"
 	YtDlpCmd          = "yt-dlp"
 )
+
+// YtDlpPath is the full path to the yt-dlp binary managed by Trailarr.
+// It defaults to `TrailarrRoot/bin/yt-dlp` (or `yt-dlp.exe` on Windows).
+var YtDlpPath string
+
+// UpdateYtDlpPath recomputes YtDlpPath based on the current TrailarrRoot.
+func UpdateYtDlpPath() {
+	exe := YtDlpCmd
+	if runtime.GOOS == "windows" {
+		exe = exe + ".exe"
+	}
+	YtDlpPath = filepath.Join(TrailarrRoot, "bin", exe)
+}
+
+// Initialize YtDlpPath variable at package init time.
+func init() {
+	UpdateYtDlpPath()
+}
 
 var (
 	// Test hooks: when true, yt-dlp calls are mocked/simulated for faster tests.
@@ -139,7 +158,7 @@ func streamYtDlpSearchForTerm(term string, remaining int, videoIdSet map[string]
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
 
-	reader, cmd, err := startYtDlpCommand(ctx, YtDlpCmd, ytDlpArgs)
+	reader, cmd, err := startYtDlpCommand(ctx, YtDlpPath, ytDlpArgs)
 	if err != nil {
 		return 0, err
 	}
@@ -265,6 +284,7 @@ type YtdlpFlagsConfig struct {
 	LimitRate        string  `yaml:"limitRate" json:"limitRate"`
 	SleepRequests    float64 `yaml:"sleepRequests" json:"sleepRequests"`
 	MaxSleepInterval float64 `yaml:"maxSleepInterval" json:"maxSleepInterval"`
+	FfmpegLocation   string  `yaml:"ffmpegLocation" json:"ffmpegLocation"`
 }
 
 // YtdlpFlagsConfig holds configuration flags for yt-dlp command-line invocations.
@@ -682,6 +702,7 @@ func DefaultYtdlpFlagsConfig() YtdlpFlagsConfig {
 		LimitRate:        "30M",
 		SleepRequests:    3.0,
 		MaxSleepInterval: 120.0,
+		FfmpegLocation:   "",
 	}
 }
 
@@ -950,14 +971,14 @@ func checkRejectedExtras(info *downloadInfo, youtubeId string) *ExtraDownloadMet
 func performDownload(info *downloadInfo, youtubeId string) (*ExtraDownloadMetadata, error) {
 	args := buildYtDlpArgs(info, youtubeId, true)
 	// Execute yt-dlp command via configurable runner
-	output, err := ytDlpRunner.CombinedOutput(YtDlpCmd, args, info.TempDir)
+	output, err := ytDlpRunner.CombinedOutput(YtDlpPath, args, info.TempDir)
 
 	if err != nil && isImpersonationErrorNative(string(output)) {
 		TrailarrLog(WARN, "YouTube", "Impersonation failed for %s, retrying without impersonation", youtubeId)
 		args = buildYtDlpArgs(info, youtubeId, false)
-		output, err = ytDlpRunner.CombinedOutput(YtDlpCmd, args, info.TempDir)
+		output, err = ytDlpRunner.CombinedOutput(YtDlpPath, args, info.TempDir)
 	}
-	TrailarrLog(DEBUG, "YouTube", "yt-dlp command executed: %s %s", YtDlpCmd, strings.Join(args, " "))
+	TrailarrLog(DEBUG, "YouTube", "yt-dlp command executed: %s %s", YtDlpPath, strings.Join(args, " "))
 
 	if len(output) > 0 {
 		for _, line := range strings.Split(string(output), "\n") {
@@ -1033,6 +1054,15 @@ func buildYtDlpArgs(info *downloadInfo, youtubeId string, impersonate bool) []st
 	}
 	if impersonate {
 		args = append(args, "--impersonate", "chrome")
+	}
+	// Add ffmpeg-location preference: explicit config overrides Trailarr-managed FfmpegPath
+	if cfg.FfmpegLocation != "" {
+		args = append(args, "--ffmpeg-location", cfg.FfmpegLocation)
+	} else if FfmpegPath != "" {
+		// ensure the path exists before adding
+		if fi, err := os.Stat(FfmpegPath); err == nil && !fi.IsDir() {
+			args = append(args, "--ffmpeg-location", FfmpegPath)
+		}
 	}
 
 	args = append(args, "--", youtubeId)
@@ -1351,7 +1381,7 @@ func runYtDlpSearch(searchQuery string, videoIdSet map[string]bool, results *[]g
 func runYtDlpSearchReal(searchQuery string, videoIdSet map[string]bool, results *[]gin.H, maxResults int, ytDlpArgs []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
-	stdout, cmd, err := ytDlpRunner.StartCommand(ctx, YtDlpCmd, ytDlpArgs)
+	stdout, cmd, err := ytDlpRunner.StartCommand(ctx, YtDlpPath, ytDlpArgs)
 	if err != nil {
 		return fmt.Errorf("failed to start yt-dlp via runner: %w", err)
 	}

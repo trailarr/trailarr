@@ -1,52 +1,52 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi } from "vitest";
 
-describe('isDark utilities', () => {
-  const origMatchMedia = globalThis.matchMedia
+describe("isDark utilities", () => {
+  const origMatchMedia = globalThis.matchMedia;
 
   afterEach(() => {
     // restore original
-    globalThis.matchMedia = origMatchMedia
-    vi.resetModules()
-  })
+    globalThis.matchMedia = origMatchMedia;
+    vi.resetModules();
+  });
 
-  it('isDarkNow returns true when matchMedia reports matches', async () => {
-    globalThis.matchMedia = () => ({ matches: true })
+  it("isDarkNow returns true when matchMedia reports matches", async () => {
+    globalThis.matchMedia = () => ({ matches: true });
     // import the function fresh
-    const { isDarkNow } = await import('../../utils/isDark')
-    expect(isDarkNow()).toBe(true)
-  })
+    const { isDarkNow } = await import("../../utils/isDark");
+    expect(isDarkNow()).toBe(true);
+  });
 
-  it('isDarkNow returns false when matchMedia not available', async () => {
-    delete globalThis.matchMedia
-    const { isDarkNow } = await import('../../utils/isDark')
-    expect(isDarkNow()).toBe(false)
-  })
+  it("isDarkNow returns false when matchMedia not available", async () => {
+    delete globalThis.matchMedia;
+    const { isDarkNow } = await import("../../utils/isDark");
+    expect(isDarkNow()).toBe(false);
+  });
 
-  it('addDarkModeListener registers listener and cleanup removes it', async () => {
-    const listeners = {}
+  it("addDarkModeListener registers listener and cleanup removes it", async () => {
+    const listeners = {};
     globalThis.matchMedia = () => ({
       matches: false,
       addEventListener: (evt, handler) => {
-        listeners[evt] = handler
+        listeners[evt] = handler;
       },
       removeEventListener: (evt, handler) => {
-        if (listeners[evt] === handler) delete listeners[evt]
+        if (listeners[evt] === handler) delete listeners[evt];
       },
-    })
+    });
 
     // import fresh to ensure module uses our mocked matchMedia
-    const { addDarkModeListener } = await import('../../utils/isDark')
-    const cb = vi.fn()
-    const cleanup = addDarkModeListener(cb)
+    const { addDarkModeListener } = await import("../../utils/isDark");
+    const cb = vi.fn();
+    const cleanup = addDarkModeListener(cb);
 
     // simulate a change event
-    listeners.change({ matches: true })
-    expect(cb).toHaveBeenCalledWith(true)
+    listeners.change({ matches: true });
+    expect(cb).toHaveBeenCalledWith(true);
 
     // cleanup and ensure further events don't call callback
-    cleanup()
+    cleanup();
     // simulate another change (no-op since listener removed)
-    if (listeners.change) listeners.change({ matches: false })
-    expect(cb).toHaveBeenCalledTimes(1)
-  })
-})
+    if (listeners.change) listeners.change({ matches: false });
+    expect(cb).toHaveBeenCalledTimes(1);
+  });
+});

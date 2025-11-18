@@ -8,7 +8,13 @@ import { faFolderOpen } from "@fortawesome/free-solid-svg-icons";
 // - onChange: function(newPath)
 // - label: optional label
 // - disabled: optional
-export default function DirectoryPicker({ value, onChange, label, disabled, name }) {
+export default function DirectoryPicker({
+  value,
+  onChange,
+  label,
+  disabled,
+  name,
+}) {
   const [folders, setFolders] = useState([]);
   const [currentPath, setCurrentPath] = useState("");
   const [loading, setLoading] = useState(false);
@@ -65,7 +71,14 @@ export default function DirectoryPicker({ value, onChange, label, disabled, name
       {label && (
         <label style={{ fontWeight: 500, marginRight: 8 }}>{label}</label>
       )}
-      <div style={{ position: "relative", display: "flex", alignItems: "center", width: "100%" }}>
+      <div
+        style={{
+          position: "relative",
+          display: "flex",
+          alignItems: "center",
+          width: "100%",
+        }}
+      >
         <input
           name={name}
           type="text"
@@ -104,7 +117,20 @@ export default function DirectoryPicker({ value, onChange, label, disabled, name
         </span>
       </div>
       {showBrowser && (
-        <div style={{ position: "absolute", zIndex: 1000, background: "#222", color: "#eee", border: "1px solid #444", borderRadius: 8, padding: "1rem", minWidth: 320, boxShadow: "0 2px 12px #0008", marginTop: 8 }}>
+        <div
+          style={{
+            position: "absolute",
+            zIndex: 1000,
+            background: "#222",
+            color: "#eee",
+            border: "1px solid #444",
+            borderRadius: 8,
+            padding: "1rem",
+            minWidth: 320,
+            boxShadow: "0 2px 12px #0008",
+            marginTop: 8,
+          }}
+        >
           <div style={{ marginBottom: 8, fontWeight: 600 }}>Select Folder</div>
           {loading ? (
             <div>Loading...</div>
@@ -113,19 +139,68 @@ export default function DirectoryPicker({ value, onChange, label, disabled, name
           ) : (
             <>
               <div style={{ marginBottom: 8 }}>
-                <button onClick={handleBack} style={{ background: "#333", color: "#fff", border: "none", borderRadius: 4, padding: "0.3rem 0.8rem", marginRight: 8 }}>Up</button>
+                <button
+                  onClick={handleBack}
+                  style={{
+                    background: "#333",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: 4,
+                    padding: "0.3rem 0.8rem",
+                    marginRight: 8,
+                  }}
+                >
+                  Up
+                </button>
                 <span style={{ color: "#aaa" }}>{currentPath || "/"}</span>
               </div>
-              <div style={{ maxHeight: 220, overflowY: "auto", marginBottom: 8 }}>
+              <div
+                style={{ maxHeight: 220, overflowY: "auto", marginBottom: 8 }}
+              >
                 {folders.map((folder) => (
-                  <div key={folder} style={{ padding: "0.3rem 0.5rem", cursor: "pointer", borderRadius: 4, background: folder === currentPath ? "#444" : "none", marginBottom: 2 }} onClick={() => handleSelect(folder)}>
+                  <div
+                    key={folder}
+                    style={{
+                      padding: "0.3rem 0.5rem",
+                      cursor: "pointer",
+                      borderRadius: 4,
+                      background: folder === currentPath ? "#444" : "none",
+                      marginBottom: 2,
+                    }}
+                    onClick={() => handleSelect(folder)}
+                  >
                     {folder}
                   </div>
                 ))}
-                {folders.length === 0 && <div style={{ color: "#888" }}>No folders</div>}
+                {folders.length === 0 && (
+                  <div style={{ color: "#888" }}>No folders</div>
+                )}
               </div>
-              <button onClick={handlePick} style={{ background: "#0078d7", color: "#fff", border: "none", borderRadius: 6, padding: "0.5rem 1.2rem", marginRight: 8 }}>Select</button>
-              <button onClick={() => setShowBrowser(false)} style={{ background: "#c00", color: "#fff", border: "none", borderRadius: 6, padding: "0.5rem 1.2rem" }}>Cancel</button>
+              <button
+                onClick={handlePick}
+                style={{
+                  background: "#0078d7",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 6,
+                  padding: "0.5rem 1.2rem",
+                  marginRight: 8,
+                }}
+              >
+                Select
+              </button>
+              <button
+                onClick={() => setShowBrowser(false)}
+                style={{
+                  background: "#c00",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 6,
+                  padding: "0.5rem 1.2rem",
+                }}
+              >
+                Cancel
+              </button>
             </>
           )}
         </div>

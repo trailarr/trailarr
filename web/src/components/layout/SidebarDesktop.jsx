@@ -23,6 +23,7 @@ export default function SidebarDesktop({
   isOpen,
   handleToggle,
   healthCount = 0,
+  hasHealthError = false,
 }) {
   // Generic submenu renderer used by Wanted, Settings and System
   function renderSubmenu(items, selectedSub, getRoute, opts = {}) {
@@ -97,7 +98,7 @@ export default function SidebarDesktop({
                 {submenu}
               </Link>
               {includeHealth && submenu === "Status" && (
-                <HealthBadge count={healthCount} />
+                <HealthBadge count={healthCount} hasError={hasHealthError} />
               )}
             </li>
           );
@@ -274,7 +275,7 @@ export default function SidebarDesktop({
                     (s) => `/wanted/${s.toLowerCase()}`,
                     {
                       parentSelected: selectedSection === name || isOpen(name),
-                    }
+                    },
                   )}
                 {name === "Settings" &&
                   isOpen("Settings") &&
@@ -284,7 +285,7 @@ export default function SidebarDesktop({
                     (s) => `/settings/${s.toLowerCase()}`,
                     {
                       parentSelected: selectedSection === name || isOpen(name),
-                    }
+                    },
                   )}
                 {name === "System" &&
                   isOpen("System") &&
@@ -299,7 +300,7 @@ export default function SidebarDesktop({
                     {
                       includeHealth: true,
                       parentSelected: selectedSection === name || isOpen(name),
-                    }
+                    },
                   )}
               </li>
             );
@@ -318,4 +319,5 @@ SidebarDesktop.propTypes = {
   isOpen: PropTypes.func.isRequired,
   handleToggle: PropTypes.func.isRequired,
   healthCount: PropTypes.number,
+  hasHealthError: PropTypes.bool,
 };

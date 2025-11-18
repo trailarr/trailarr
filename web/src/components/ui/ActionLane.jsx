@@ -28,43 +28,53 @@ export default function ActionLane({ buttons = [], error, children }) {
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-        {buttons.map(({ icon, label, onClick, disabled, loading, showLabel = true, key }) => (
-          <button
-            key={key || label}
-            onClick={onClick}
-            disabled={disabled || loading}
-            style={{
-              background: "none",
-              color: laneText,
-              border: "none",
-              padding: "0.3rem 1rem",
-              cursor: disabled || loading ? "not-allowed" : "pointer",
-              opacity: disabled || loading ? 0.7 : 1,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: "0.2rem",
-            }}
-          >
-            {icon}
-            {showLabel && (
-              <span
-                style={{
-                  fontWeight: 500,
-                  fontSize: "0.85em",
-                  color: laneText,
-                  marginTop: 2,
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  lineHeight: 1.1,
-                }}
-              >
-                {label}
-              </span>
-            )}
-          </button>
-        ))}
+        {buttons.map(
+          ({
+            icon,
+            label,
+            onClick,
+            disabled,
+            loading,
+            showLabel = true,
+            key,
+          }) => (
+            <button
+              key={key || label}
+              onClick={onClick}
+              disabled={disabled || loading}
+              style={{
+                background: "none",
+                color: laneText,
+                border: "none",
+                padding: "0.3rem 1rem",
+                cursor: disabled || loading ? "not-allowed" : "pointer",
+                opacity: disabled || loading ? 0.7 : 1,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "0.2rem",
+              }}
+            >
+              {icon}
+              {showLabel && (
+                <span
+                  style={{
+                    fontWeight: 500,
+                    fontSize: "0.85em",
+                    color: laneText,
+                    marginTop: 2,
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    lineHeight: 1.1,
+                  }}
+                >
+                  {label}
+                </span>
+              )}
+            </button>
+          ),
+        )}
       </div>
       {children}
       {error && (

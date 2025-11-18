@@ -27,8 +27,22 @@ export default function LoadingMediaSkeleton() {
             }}
           />
           <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
-            <div style={{ width: 120, height: 36, borderRadius: 8, background: dark ? "#202124" : "#e8e8e8" }} />
-            <div style={{ width: 120, height: 36, borderRadius: 8, background: dark ? "#202124" : "#e8e8e8" }} />
+            <div
+              style={{
+                width: 120,
+                height: 36,
+                borderRadius: 8,
+                background: dark ? "#202124" : "#e8e8e8",
+              }}
+            />
+            <div
+              style={{
+                width: 120,
+                height: 36,
+                borderRadius: 8,
+                background: dark ? "#202124" : "#e8e8e8",
+              }}
+            />
           </div>
         </div>
       </div>

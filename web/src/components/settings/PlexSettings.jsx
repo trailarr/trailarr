@@ -30,9 +30,10 @@ const OAuthButton = ({ onClick, disabled }) => {
     transition: "background 0.12s ease, transform 0.06s",
     transform: hover ? "translateY(-1px)" : "none",
     outline: "none",
-    boxShadow: hover ? "0 2px 6px rgba(0,0,0,0.12)" : "0 1px 3px rgba(0,0,0,0.08)",
+    boxShadow: hover
+      ? "0 2px 6px rgba(0,0,0,0.12)"
+      : "0 1px 3px rgba(0,0,0,0.08)",
   };
-
 
   return (
     <button
@@ -51,7 +52,16 @@ const OAuthButton = ({ onClick, disabled }) => {
       title="Get Plex Token"
       disabled={disabled}
     >
-  <img src="/icons/plex.svg" alt="Plex" style={{ width: 22, height: 22, display: "inline-block", filter: "drop-shadow(0 1px 0 rgba(0,0,0,0.06))" }} />
+      <img
+        src="/icons/plex.svg"
+        alt="Plex"
+        style={{
+          width: 22,
+          height: 22,
+          display: "inline-block",
+          filter: "drop-shadow(0 1px 0 rgba(0,0,0,0.06))",
+        }}
+      />
       <span>Get Plex Token</span>
     </button>
   );
@@ -221,7 +231,9 @@ export default function PlexSettings() {
         // If the popup was closed by the user, stop polling and notify
         if (popup?.closed) {
           clearInterval(pollInterval);
-          setToast("Plex login window was closed before authorization completed.");
+          setToast(
+            "Plex login window was closed before authorization completed.",
+          );
           setToastSuccess(false);
           // Clean up stored pin/code
           sessionStorage.removeItem("plexOAuthPinID");
@@ -250,7 +262,7 @@ export default function PlexSettings() {
             clearInterval(pollInterval);
 
             // Update settings with new token
-            setSettings(prev => ({ ...prev, token: exchangeData.token }));
+            setSettings((prev) => ({ ...prev, token: exchangeData.token }));
             setToast("Plex authentication successful! Token acquired.");
             setToastSuccess(true);
 
@@ -358,7 +370,7 @@ export default function PlexSettings() {
               </div>
 
               <div style={{ width: "100%", marginBottom: "1.2rem" }}>
-                  <label
+                <label
                   style={{
                     fontWeight: 600,
                     fontSize: "1.15em",
@@ -381,8 +393,12 @@ export default function PlexSettings() {
                       padding: "0.5rem",
                       borderRadius: 6,
                       border: "1px solid #bbb",
-                      background: settings.enabled ? "var(--settings-input-bg, #f5f5f5)" : "#f0f0f0",
-                      color: settings.enabled ? "var(--settings-input-text, #222)" : "#999",
+                      background: settings.enabled
+                        ? "var(--settings-input-bg, #f5f5f5)"
+                        : "#f0f0f0",
+                      color: settings.enabled
+                        ? "var(--settings-input-text, #222)"
+                        : "#999",
                       cursor: settings.enabled ? "auto" : "not-allowed",
                     }}
                   >
@@ -417,8 +433,12 @@ export default function PlexSettings() {
                       padding: "0.5rem",
                       borderRadius: 6,
                       border: "1px solid #bbb",
-                      background: settings.enabled ? "var(--settings-input-bg, #f5f5f5)" : "#f0f0f0",
-                      color: settings.enabled ? "var(--settings-input-text, #222)" : "#999",
+                      background: settings.enabled
+                        ? "var(--settings-input-bg, #f5f5f5)"
+                        : "#f0f0f0",
+                      color: settings.enabled
+                        ? "var(--settings-input-text, #222)"
+                        : "#999",
                       cursor: settings.enabled ? "auto" : "not-allowed",
                     }}
                   />
@@ -451,8 +471,12 @@ export default function PlexSettings() {
                       padding: "0.5rem",
                       borderRadius: 6,
                       border: "1px solid #bbb",
-                      background: settings.enabled ? "var(--settings-input-bg, #f5f5f5)" : "#f0f0f0",
-                      color: settings.enabled ? "var(--settings-input-text, #222)" : "#999",
+                      background: settings.enabled
+                        ? "var(--settings-input-bg, #f5f5f5)"
+                        : "#f0f0f0",
+                      color: settings.enabled
+                        ? "var(--settings-input-text, #222)"
+                        : "#999",
                       cursor: settings.enabled ? "auto" : "not-allowed",
                     }}
                   />

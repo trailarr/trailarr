@@ -106,7 +106,8 @@ function PlexTypeBox({ plexType, onDropChip, children }) {
 }
 
 PlexTypeBox.propTypes = {
-  plexType: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  plexType: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
+    .isRequired,
   onDropChip: PropTypes.func,
   children: PropTypes.node,
 };
@@ -116,7 +117,12 @@ PlexTypeBox.defaultProps = {
   children: null,
 };
 
-export default function ExtrasTypeMappingConfig({ mapping, onMappingChange, tmdbTypes, plexTypes }) {
+export default function ExtrasTypeMappingConfig({
+  mapping,
+  onMappingChange,
+  tmdbTypes,
+  plexTypes,
+}) {
   const handleMoveChip = (tmdbType, newPlexType) => {
     if (onMappingChange) {
       onMappingChange({ ...mapping, [tmdbType]: newPlexType });
@@ -142,16 +148,35 @@ export default function ExtrasTypeMappingConfig({ mapping, onMappingChange, tmdb
           {(plexTypes || []).map((plexTypeObj) => {
             const plexKey = plexTypeObj?.key ?? String(plexTypeObj);
             const plexLabel = plexTypeObj?.label ?? String(plexTypeObj);
-            const assignedTmdbTypes = (tmdbTypes || []).filter((tmdbType) => mapping[tmdbType] === plexLabel);
+            const assignedTmdbTypes = (tmdbTypes || []).filter(
+              (tmdbType) => mapping[tmdbType] === plexLabel,
+            );
             return (
               <Box key={plexKey} display="flex" alignItems="center" mb={1}>
-                <Box minWidth={140} fontWeight={500} fontSize={14} textAlign="left" sx={{ color: isDark ? "#e5e7eb" : "#222" }}>
+                <Box
+                  minWidth={140}
+                  fontWeight={500}
+                  fontSize={14}
+                  textAlign="left"
+                  sx={{ color: isDark ? "#e5e7eb" : "#222" }}
+                >
                   {plexLabel}
                 </Box>
                 <Box flex={1} ml={1}>
-                  <PlexTypeBox plexType={plexKey} assignedTmdbTypes={assignedTmdbTypes} onDropChip={(tmdbType) => handleMoveChip(tmdbType, plexLabel)}>
+                  <PlexTypeBox
+                    plexType={plexKey}
+                    assignedTmdbTypes={assignedTmdbTypes}
+                    onDropChip={(tmdbType) =>
+                      handleMoveChip(tmdbType, plexLabel)
+                    }
+                  >
                     {assignedTmdbTypes.map((tmdbType) => (
-                      <TmdbChip key={tmdbType} tmdbType={tmdbType} plexType={plexLabel} onMove={handleMoveChip} />
+                      <TmdbChip
+                        key={tmdbType}
+                        tmdbType={tmdbType}
+                        plexType={plexLabel}
+                        onMove={handleMoveChip}
+                      />
                     ))}
                   </PlexTypeBox>
                 </Box>

@@ -168,7 +168,10 @@ export default function BlacklistPage() {
   const [blacklist, setBlacklist] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
-  const [youtubeModal, setYoutubeModal] = useState({ open: false, videoId: "" });
+  const [youtubeModal, setYoutubeModal] = useState({
+    open: false,
+    videoId: "",
+  });
 
   useEffect(() => {
     fetch("/api/blacklist/extras")
@@ -238,15 +241,30 @@ export default function BlacklistPage() {
   }, [youtubeModal.open]);
 
   if (loading) {
-    const skeletonKeys = Array.from({ length: 8 }).map(() => `skeleton-${Math.random().toString(36).slice(2, 9)}`);
+    const skeletonKeys = Array.from({ length: 8 }).map(
+      () => `skeleton-${Math.random().toString(36).slice(2, 9)}`,
+    );
     return (
       <div className="blacklist-wrapper">
         <div className="blacklist-grid">
           {skeletonKeys.map((key) => (
-            <div key={key} className="blacklist-skeleton" style={{ background: isDark ? "#23232a" : "#f3f4f6" }}>
-              <div className="skeleton-thumb" style={{ background: isDark ? "#1f2937" : "#e5e7eb" }} />
-              <div className="skeleton-line" style={{ background: isDark ? "#111827" : "#e9ecef" }} />
-              <div className="skeleton-line short" style={{ background: isDark ? "#111827" : "#e9ecef" }} />
+            <div
+              key={key}
+              className="blacklist-skeleton"
+              style={{ background: isDark ? "#23232a" : "#f3f4f6" }}
+            >
+              <div
+                className="skeleton-thumb"
+                style={{ background: isDark ? "#1f2937" : "#e5e7eb" }}
+              />
+              <div
+                className="skeleton-line"
+                style={{ background: isDark ? "#111827" : "#e9ecef" }}
+              />
+              <div
+                className="skeleton-line short"
+                style={{ background: isDark ? "#111827" : "#e9ecef" }}
+              />
               <div style={{ flex: 1 }} />
             </div>
           ))}
@@ -260,7 +278,8 @@ export default function BlacklistPage() {
 
   let items = null;
   if (Array.isArray(blacklist)) items = blacklist;
-  else if (blacklist && typeof blacklist === "object") items = Object.values(blacklist);
+  else if (blacklist && typeof blacklist === "object")
+    items = Object.values(blacklist);
   if (!Array.isArray(items)) {
     return (
       <div className="unexpected-format">
@@ -279,23 +298,55 @@ export default function BlacklistPage() {
     groups[normReason].push(item);
   }
 
-  const totalItems = Object.values(groups).reduce((acc, arr) => acc + arr.length, 0);
-  if (totalItems === 0) return <div className="no-items">No blacklisted extras found.</div>;
+  const totalItems = Object.values(groups).reduce(
+    (acc, arr) => acc + arr.length,
+    0,
+  );
+  if (totalItems === 0)
+    return <div className="no-items">No blacklisted extras found.</div>;
 
   return (
-    <Container style={{ minHeight: "calc(100vh - 64px)", padding: 0, background: isDark ? "#18181b" : "#fff", color: isDark ? "#f3f4f6" : "#18181b" }}>
+    <Container
+      style={{
+        minHeight: "calc(100vh - 64px)",
+        padding: 0,
+        background: isDark ? "#18181b" : "#fff",
+        color: isDark ? "#f3f4f6" : "#18181b",
+      }}
+    >
       {Object.entries(groups).map(([reason, groupItems]) => {
         let displayReason = reason;
-        if (reason.includes("Did not get any data blocks") && reason.length > 40) {
+        if (
+          reason.includes("Did not get any data blocks") &&
+          reason.length > 40
+        ) {
           displayReason = reason.slice(0, 1000) + "...";
         }
         const groupKey = reason.replaceAll(/[^a-zA-Z0-9_-]/g, "_").slice(0, 40);
         return (
-          <div key={groupKey} className="blacklist-group-container" style={{ background: isDark ? "#23232a" : "#f3f4f6", boxShadow: isDark ? "0 2px 8px #0004" : "0 2px 8px #0001" }}>
-            <SectionHeader className="blacklist-section-header">{displayReason}</SectionHeader>
-            <div className="blacklist-extras-grid" style={{ justifyContent: "start" }}>
+          <div
+            key={groupKey}
+            className="blacklist-group-container"
+            style={{
+              background: isDark ? "#23232a" : "#f3f4f6",
+              boxShadow: isDark ? "0 2px 8px #0004" : "0 2px 8px #0001",
+            }}
+          >
+            <SectionHeader className="blacklist-section-header">
+              {displayReason}
+            </SectionHeader>
+            <div
+              className="blacklist-extras-grid"
+              style={{ justifyContent: "start" }}
+            >
               {groupItems.map((item, idx) => (
-                <BlacklistGroupItem key={`${item.youtubeId || ""}-${item.mediaId || ""}-${item.mediaType || ""}`} item={item} idx={idx} setYoutubeModal={setYoutubeModal} setBlacklist={setBlacklist} />
+                <BlacklistGroupItem
+                  key={`${item.youtubeId || ""}-${item.mediaId || ""}-${item.mediaType || ""}`}
+                  item={item}
+                  idx={idx}
+                  setYoutubeModal={setYoutubeModal}
+                  setBlacklist={setBlacklist}
+                />
               ))}
             </div>
           </div>
@@ -304,7 +355,12 @@ export default function BlacklistPage() {
 
       {youtubeModal.open && youtubeModal.videoId && (
         <dialog open aria-modal="true" className="blacklist-youtube-backdrop">
-          <button type="button" aria-label="Close video" className="blacklist-youtube-backdrop-btn" onClick={() => setYoutubeModal({ open: false, videoId: "" })} />
+          <button
+            type="button"
+            aria-label="Close video"
+            className="blacklist-youtube-backdrop-btn"
+            onClick={() => setYoutubeModal({ open: false, videoId: "" })}
+          />
           <div className="blacklist-youtube-modal" aria-label="YouTube video">
             <YoutubePlayer videoId={youtubeModal.videoId} />
           </div>

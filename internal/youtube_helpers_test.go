@@ -3,6 +3,8 @@ package internal
 import (
 	"bytes"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -66,6 +68,7 @@ func TestBuildYtDlpArgs(t *testing.T) {
 	// ensure GetYtdlpFlagsConfig returns valid config
 	cfg := DefaultYtdlpFlagsConfig()
 	_ = cfg
+	// Test with default config
 	args := buildYtDlpArgs(info, "ytid", true)
 	if len(args) == 0 {
 		t.Fatalf("expected args, got none")
@@ -80,6 +83,55 @@ func TestBuildYtDlpArgs(t *testing.T) {
 		if args2[i] == "--impersonate" {
 			t.Fatalf("did not expect --impersonate when impersonate=false")
 		}
+	}
+}
+
+// Test that buildYtDlpArgs includes --ffmpeg-location when config or FfmpegPath is set
+func TestBuildYtDlpArgs_FfmpegLocation(t *testing.T) {
+	td := t.TempDir()
+	// Prepare a fake ffmpeg and set FfmpegPath to that file
+	ffPath := filepath.Join(td, "ffmpeg")
+	if err := os.WriteFile(ffPath, []byte("#!/bin/sh\necho test\n"), 0755); err != nil {
+		t.Fatalf("write ffmpeg: %v", err)
+	}
+	oldFfmpegPath := FfmpegPath
+	FfmpegPath = ffPath
+	defer func() { FfmpegPath = oldFfmpegPath }()
+
+	// Ensure config is empty to test fallback
+	cfg := DefaultYtdlpFlagsConfig()
+	cfg.FfmpegLocation = ""
+	if err := SaveYtdlpFlagsConfig(cfg); err != nil {
+		t.Fatalf("failed to save cfg: %v", err)
+	}
+	info := &downloadInfo{TempFile: "tmpfile.mkv"}
+	args := buildYtDlpArgs(info, "ytid", true)
+	found := false
+	for i := 0; i < len(args)-1; i++ {
+		if args[i] == "--ffmpeg-location" && args[i+1] == ffPath {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected args to contain --ffmpeg-location with fallback, got %v", args)
+	}
+
+	// Now set explicit config for FfmpegLocation and verify it takes precedence
+	cfg.FfmpegLocation = "/custom/ffmpeg"
+	if err := SaveYtdlpFlagsConfig(cfg); err != nil {
+		t.Fatalf("failed to save cfg: %v", err)
+	}
+	args2 := buildYtDlpArgs(info, "ytid", true)
+	found2 := false
+	for i := 0; i < len(args2)-1; i++ {
+		if args2[i] == "--ffmpeg-location" && args2[i+1] == cfg.FfmpegLocation {
+			found2 = true
+			break
+		}
+	}
+	if !found2 {
+		t.Fatalf("expected args to contain --ffmpeg-location from config, got %v", args2)
 	}
 }
 

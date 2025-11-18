@@ -345,6 +345,8 @@ func registerHealthAndTaskRoutes(r *gin.Engine) {
 
 	// System status for UI Status page
 	r.GET("/api/system/status", SystemStatusHandler())
+	r.POST("/api/system/update/ytdlp", handleYtdlpUpdate)
+	r.POST("/api/system/update/ffmpeg", handleFfmpegUpdate)
 
 	// API endpoint for scheduled/queue status
 	r.GET("/api/tasks/status", GetAllTasksStatus())
@@ -414,7 +416,7 @@ func persistProviderHealthIssue(provider string, terr error) {
 	hm := HealthMsg{
 		Message: fmt.Sprintf("%s connectivity failed: %v", capitalize(provider), terr),
 		Source:  capitalize(provider),
-		Level:   "warning",
+		Level:   "error",
 	}
 	b, jerr := json.Marshal(hm)
 	if jerr != nil {

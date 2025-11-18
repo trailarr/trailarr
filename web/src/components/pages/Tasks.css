@@ -1,3 +1,10 @@
 /* Spin animation for task icons */
-.spin-icon, svg.spin-icon { animation: spin 1s linear infinite !important; }
-@keyframes spin { 100% { transform: rotate(360deg); } }
+.spin-icon,
+svg.spin-icon {
+  animation: spin 1s linear infinite !important;
+}
+@keyframes spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}

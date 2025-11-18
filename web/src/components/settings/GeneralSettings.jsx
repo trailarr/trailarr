@@ -23,29 +23,155 @@ export default function GeneralSettings() {
   const [toastSuccess, setToastSuccess] = useState(true);
   useEffect(() => {
     const setColors = () => {
-      document.documentElement.style.setProperty("--save-lane-bg", isDark ? "#333" : "#e5e7eb");
-      document.documentElement.style.setProperty("--save-lane-text", isDark ? "#eee" : "#222");
-      document.documentElement.style.setProperty("--settings-input-bg", isDark ? "#333" : "#f5f5f5");
-      document.documentElement.style.setProperty("--settings-input-text", isDark ? "#eee" : "#222");
+      document.documentElement.style.setProperty(
+        "--save-lane-bg",
+        isDark ? "#333" : "#e5e7eb",
+      );
+      document.documentElement.style.setProperty(
+        "--save-lane-text",
+        isDark ? "#eee" : "#222",
+      );
+      document.documentElement.style.setProperty(
+        "--settings-input-bg",
+        isDark ? "#333" : "#f5f5f5",
+      );
+      document.documentElement.style.setProperty(
+        "--settings-input-text",
+        isDark ? "#eee" : "#222",
+      );
     };
     setColors();
     const remove = addDarkModeListener(setColors);
     return remove;
   }, []);
   useEffect(() => {
-    fetch("/api/settings/general").then((r) => r.json()).then((data) => { setTmdbKey(data.tmdbKey || ""); setOriginalKey(data.tmdbKey || ""); setAutoDownloadExtras(data.autoDownloadExtras !== false); setOriginalAutoDownload(data.autoDownloadExtras !== false); setLogLevel(data.logLevel || "Debug"); setOriginalLogLevel(data.logLevel || "Debug"); setFrontendUrl(data.frontendUrl || ""); setOriginalFrontendUrl(data.frontendUrl || ""); });
+    fetch("/api/settings/general")
+      .then((r) => r.json())
+      .then((data) => {
+        setTmdbKey(data.tmdbKey || "");
+        setOriginalKey(data.tmdbKey || "");
+        setAutoDownloadExtras(data.autoDownloadExtras !== false);
+        setOriginalAutoDownload(data.autoDownloadExtras !== false);
+        setLogLevel(data.logLevel || "Debug");
+        setOriginalLogLevel(data.logLevel || "Debug");
+        setFrontendUrl(data.frontendUrl || "");
+        setOriginalFrontendUrl(data.frontendUrl || "");
+      });
   }, []);
-  const isChanged = tmdbKey !== originalKey || autoDownloadExtras !== originalAutoDownload || logLevel !== originalLogLevel || frontendUrl !== originalFrontendUrl;
-  const testTmdbKey = async () => { setTesting(true); setToast(""); try { const res = await fetch(`/api/test/tmdb?apiKey=${encodeURIComponent(tmdbKey)}`); if (res.ok) { const data = await res.json(); if (data.success) { setToast("Connection successful!"); setToastSuccess(true); } else { setToast(data.error || "Connection failed."); setToastSuccess(false); } } else { setToast("Connection failed."); setToastSuccess(false); } } catch { setToast("Connection failed."); setToastSuccess(false); } setTesting(false); };
-  const handleSave = async () => { setSaving(true); setToast(""); try { const res = await fetch("/api/settings/general", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tmdbKey, autoDownloadExtras, logLevel, frontendUrl }) }); if (res.ok) { setToast("Settings saved successfully!"); setToastSuccess(true); setOriginalKey(tmdbKey); setOriginalAutoDownload(autoDownloadExtras); setOriginalLogLevel(logLevel); setOriginalFrontendUrl(frontendUrl); } else { setToast("Error saving settings."); setToastSuccess(false); } } catch { setToast("Error saving settings."); setToastSuccess(false); } setSaving(false); };
+  const isChanged =
+    tmdbKey !== originalKey ||
+    autoDownloadExtras !== originalAutoDownload ||
+    logLevel !== originalLogLevel ||
+    frontendUrl !== originalFrontendUrl;
+  const testTmdbKey = async () => {
+    setTesting(true);
+    setToast("");
+    try {
+      const res = await fetch(
+        `/api/test/tmdb?apiKey=${encodeURIComponent(tmdbKey)}`,
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setToast("Connection successful!");
+          setToastSuccess(true);
+        } else {
+          setToast(data.error || "Connection failed.");
+          setToastSuccess(false);
+        }
+      } else {
+        setToast("Connection failed.");
+        setToastSuccess(false);
+      }
+    } catch {
+      setToast("Connection failed.");
+      setToastSuccess(false);
+    }
+    setTesting(false);
+  };
+  const handleSave = async () => {
+    setSaving(true);
+    setToast("");
+    try {
+      const res = await fetch("/api/settings/general", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tmdbKey,
+          autoDownloadExtras,
+          logLevel,
+          frontendUrl,
+        }),
+      });
+      if (res.ok) {
+        setToast("Settings saved successfully!");
+        setToastSuccess(true);
+        setOriginalKey(tmdbKey);
+        setOriginalAutoDownload(autoDownloadExtras);
+        setOriginalLogLevel(logLevel);
+        setOriginalFrontendUrl(frontendUrl);
+      } else {
+        setToast("Error saving settings.");
+        setToastSuccess(false);
+      }
+    } catch {
+      setToast("Error saving settings.");
+      setToastSuccess(false);
+    }
+    setSaving(false);
+  };
   return (
     <Container>
-      <ActionLane buttons={[{ icon: saving ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faSave} />, label: "Save", onClick: handleSave, disabled: saving || !isChanged, loading: saving, showLabel: globalThis.window && globalThis.window.innerWidth > 900 }]} error={""} />
-      <Toast message={toast} onClose={() => setToast("")} success={toastSuccess} />
-      <div style={{ marginTop: "4.5rem", color: isDark ? "#f3f4f6" : "#23232a", borderRadius: 12, boxShadow: "0 1px 4px #0001", padding: "2rem" }}>
+      <ActionLane
+        buttons={[
+          {
+            icon: saving ? (
+              <FontAwesomeIcon icon={faSpinner} spin />
+            ) : (
+              <FontAwesomeIcon icon={faSave} />
+            ),
+            label: "Save",
+            onClick: handleSave,
+            disabled: saving || !isChanged,
+            loading: saving,
+            showLabel: globalThis.window && globalThis.window.innerWidth > 900,
+          },
+        ]}
+        error={""}
+      />
+      <Toast
+        message={toast}
+        onClose={() => setToast("")}
+        success={toastSuccess}
+      />
+      <div
+        style={{
+          marginTop: "4.5rem",
+          color: isDark ? "#f3f4f6" : "#23232a",
+          borderRadius: 12,
+          boxShadow: "0 1px 4px #0001",
+          padding: "2rem",
+        }}
+      >
         <SectionHeader>TMDB API Key</SectionHeader>
         {/* Form fields (same as original) simplified for brevity */}
-        <input id="tmdbKey" type="text" value={tmdbKey} onChange={(e) => setTmdbKey(e.target.value)} style={{ width: "100%", maxWidth: 480, boxSizing: 'border-box' }} />
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <input
+            id="tmdbKey"
+            type="text"
+            value={tmdbKey}
+            onChange={(e) => setTmdbKey(e.target.value)}
+            style={{ width: "100%", maxWidth: 440, boxSizing: "border-box" }}
+          />
+          <IconButton
+            title="Test TMDB Key"
+            aria-label="Test TMDB Key"
+            disabled={testing || !tmdbKey}
+            onClick={testTmdbKey}
+            style={{ cursor: testing || !tmdbKey ? "not-allowed" : "pointer" }}
+            icon={<FontAwesomeIcon icon={faPlug} />}
+          />
+        </div>
       </div>
     </Container>
   );
