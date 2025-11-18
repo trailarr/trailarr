@@ -264,7 +264,9 @@ export default function SidebarDesktop({
                     <span>{name}</span>
                     {name === "System" &&
                       healthCount > 0 &&
-                      !isOpen("System") && <HealthBadge count={healthCount} />}
+                      !isOpen("System") && (
+                        <HealthBadge count={healthCount} hasError={hasHealthError} />
+                      )}
                   </span>
                 </button>
                 {name === "Wanted" &&
