@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -68,6 +69,19 @@ func TestGetPathMappingsAndProviderUrlApiKey(t *testing.T) {
 		t.Fatalf("failed to create config dir: %v", err)
 	}
 	SetConfigPath(filepath.Join(cfgDir, "config.yml"))
+
+	// Prevent background tasks (healthcheck) from running concurrently
+	// and potentially overwriting the config. Save/restore the tasksMeta
+	// so other tests remain unaffected. Do this before we write the file so
+	// no background task reads an empty file and writes defaults afterwards.
+	origTasksMeta := tasksMeta
+	tasksMeta = map[TaskID]TaskMeta{}
+	// Clear any existing queued tasks in the store so previously scheduled
+	// healthcheck jobs don't run during this test.
+	ctx := context.Background()
+	_ = GetStoreClient().Del(ctx, TaskQueueStoreKey)
+	_ = GetStoreClient().Del(ctx, HealthIssuesStoreKey)
+	defer func() { tasksMeta = origTasksMeta }()
 
 	// write a config file with radarr section including pathMappings
 	content := []byte("radarr:\n  url: http://radarr.local\n  apiKey: RKEY\n  pathMappings:\n    - from: /mnt/movies\n      to: /media/movies\n")
