@@ -44,7 +44,13 @@ func handleFfmpegUpdate(c *gin.Context) {
 
 // updateFfmpeg downloads a ffmpeg asset (best-effort) and installs it under TrailarrRoot/bin.
 func updateFfmpeg() error {
-	client := &http.Client{Timeout: 10 * time.Second}
+	// Read configured timeout (may be increased for slow Docker hosts)
+	timeout, err := GetFfmpegDownloadTimeout()
+	if err != nil {
+		TrailarrLog(WARN, "SystemUpdate", "Failed to parse ffmpegDownloadTimeout; falling back to 10m: %v", err)
+		timeout = 10 * time.Minute
+	}
+	client := &http.Client{Timeout: timeout}
 	// Prefer BtbN binary builds, which publish prebuilt static assets per platform
 	url := "https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/latest"
 	req, _ := http.NewRequestWithContext(context.Background(), "GET", url, nil)
@@ -101,8 +107,8 @@ func updateFfmpeg() error {
 	}
 	defer func() { tmpFile.Close(); _ = os.Remove(tmpFile.Name()) }()
 
-	// Download asset with increased timeout and retries
-	if err := downloadAssetToFile(assetURL, tmpFile, 10*time.Minute); err != nil {
+	// Download asset with configured timeout and retries
+	if err := downloadAssetToFile(assetURL, tmpFile, timeout); err != nil {
 		return err
 	}
 	if runtime.GOOS != "windows" {
@@ -236,7 +242,12 @@ func chooseFfmpegAsset(assets []struct {
 // It returns an error if anything fails.
 func updateYtdlp() error {
 	// Fetch latest release metadata
-	client := &http.Client{Timeout: 10 * time.Second}
+	timeout, err := GetYtDlpDownloadTimeout()
+	if err != nil {
+		TrailarrLog(WARN, "SystemUpdate", "Failed to parse ytdlpDownloadTimeout; falling back to 5m: %v", err)
+		timeout = 5 * time.Minute
+	}
+	client := &http.Client{Timeout: timeout}
 	url := "https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest"
 	req, _ := http.NewRequestWithContext(context.Background(), "GET", url, nil)
 	req.Header.Set("User-Agent", "trailarr")
@@ -279,8 +290,9 @@ func updateYtdlp() error {
 		_ = os.Remove(tmpFile.Name())
 	}()
 
-	// Download asset with increased timeout and retries
-	if err := downloadAssetToFile(assetURL, tmpFile, 5*time.Minute); err != nil {
+	// Download asset with configured timeout and retries
+	if err := downloadAssetToFile(assetURL, tmpFile, timeout); err != nil {
+		TrailarrLog(WARN, "SystemUpdate", "download attempts failed for %s: %v", assetURL, err)
 		return err
 	}
 
@@ -621,12 +633,14 @@ func downloadAssetToFile(assetURL string, dest *os.File, timeout time.Duration) 
 			return fmt.Errorf("failed to truncate temp file: %w", err)
 		}
 
-		if _, err := io.Copy(dest, resp.Body); err != nil {
+		written, err := io.Copy(dest, resp.Body)
+		if err != nil {
 			TrailarrLog(WARN, "SystemUpdate", "write attempt %d failed for %s: %v", i+1, assetURL, err)
 			resp.Body.Close()
 			time.Sleep(time.Duration(1<<i) * time.Second)
 			continue
 		}
+		TrailarrLog(INFO, "SystemUpdate", "download attempt %d succeeded for %s (bytes=%d)", i+1, assetURL, written)
 		// success
 		resp.Body.Close()
 		return nil

@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -42,5 +43,35 @@ func TestDownloadAssetToFile_RetriesAndSucceeds(t *testing.T) {
 	}
 	if string(b) != "hello" {
 		t.Fatalf("unexpected body: %s", string(b))
+	}
+}
+
+func TestGetFfmpegDownloadTimeout_EnvAndConfig(t *testing.T) {
+	// env override
+	os.Setenv("FFMPEG_DOWNLOAD_TIMEOUT", "1s")
+	defer os.Unsetenv("FFMPEG_DOWNLOAD_TIMEOUT")
+	d, err := GetFfmpegDownloadTimeout()
+	if err != nil {
+		t.Fatalf("GetFfmpegDownloadTimeout env parse err: %v", err)
+	}
+	if d < time.Second || d > time.Second+time.Millisecond*1000 {
+		t.Fatalf("expected ~1s for env override, got %v", d)
+	}
+	// Remove env and test config fallback
+	os.Unsetenv("FFMPEG_DOWNLOAD_TIMEOUT")
+	tmpDir := t.TempDir()
+	cfgPath := filepath.Join(tmpDir, "config.yml")
+	SetConfigPath(cfgPath)
+	// write config with custom ffmpegDownloadTimeout
+	config := map[string]interface{}{"general": map[string]interface{}{"ffmpegDownloadTimeout": "2s"}}
+	if err := writeConfigFile(config); err != nil {
+		t.Fatalf("writeConfigFile: %v", err)
+	}
+	d2, err := GetFfmpegDownloadTimeout()
+	if err != nil {
+		t.Fatalf("GetFfmpegDownloadTimeout config parse err: %v", err)
+	}
+	if d2 < 2*time.Second || d2 > 3*time.Second {
+		t.Fatalf("expected ~2s from config, got %v", d2)
 	}
 }

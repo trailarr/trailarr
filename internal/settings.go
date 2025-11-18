@@ -250,6 +250,11 @@ func DefaultGeneralConfig() map[string]interface{} {
 		// trusting only the loopback interface. Administrators may override
 		// this in config.yml to add their reverse proxy networks.
 		"trustedProxies": []string{"127.0.0.1"},
+		// Download timeout for large assets like ffmpeg. Accepts a duration
+		// string parseable by time.ParseDuration, e.g. "10m" or "30m".
+		"ffmpegDownloadTimeout": "10m",
+		// Separate timeout for yt-dlp downloads (smaller binary), default 5m
+		"ytdlpDownloadTimeout": "5m",
 	}
 }
 
@@ -284,6 +289,53 @@ func GetTrustedProxies() ([]string, error) {
 		}
 	}
 	return []string{"127.0.0.1"}, nil
+}
+
+// GetFfmpegDownloadTimeout returns configured timeout or default 10m
+func GetFfmpegDownloadTimeout() (time.Duration, error) {
+	// Environment variable override (useful for Docker container runtime)
+	if v := os.Getenv("FFMPEG_DOWNLOAD_TIMEOUT"); v != "" {
+		d, err := time.ParseDuration(v)
+		if err == nil {
+			return d, nil
+		}
+		return 0, err
+	}
+	cfg, err := readConfigFile()
+	if err != nil {
+		return time.ParseDuration("10m")
+	}
+	general, ok := cfg["general"].(map[string]interface{})
+	if !ok || general == nil {
+		return time.ParseDuration("10m")
+	}
+	if v, ok := general["ffmpegDownloadTimeout"].(string); ok && v != "" {
+		return time.ParseDuration(v)
+	}
+	return time.ParseDuration("10m")
+}
+
+// GetYtDlpDownloadTimeout returns configured timeout or default 5m
+func GetYtDlpDownloadTimeout() (time.Duration, error) {
+	if v := os.Getenv("YTDLP_DOWNLOAD_TIMEOUT"); v != "" {
+		d, err := time.ParseDuration(v)
+		if err == nil {
+			return d, nil
+		}
+		return 0, err
+	}
+	cfg, err := readConfigFile()
+	if err != nil {
+		return time.ParseDuration("5m")
+	}
+	general, ok := cfg["general"].(map[string]interface{})
+	if !ok || general == nil {
+		return time.ParseDuration("5m")
+	}
+	if v, ok := general["ytdlpDownloadTimeout"].(string); ok && v != "" {
+		return time.ParseDuration(v)
+	}
+	return time.ParseDuration("5m")
 }
 
 // normalizeYAML recursively converts maps with non-string keys (which can be

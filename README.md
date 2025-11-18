@@ -79,6 +79,21 @@ docker run -p 8080:8080 trailarr:latest
 ## Configuration
 - Settings for Radarr, Sonarr, and extras are managed via the web UI.
 - Sync timings and other advanced settings are loaded from config files (see `internal/`).
+ - `general.trustedProxies` (): CIDR list used by the backend to determine the client's real IP when running behind a reverse proxy. Defaults to `127.0.0.1` (loopback) and can be updated in `config.yml`.
+ - `general.ffmpegDownloadTimeout` (optional): Duration string for ffmpeg asset download timeout (e.g. `10m` or `30m`). Default `10m`.
+ - `general.ytdlpDownloadTimeout` (optional): Duration string for yt-dlp asset download timeout (e.g. `5m`). Default `5m`.
+
+Docker notes (ffmpeg update fails only in Docker)
+ - If `update ffmpeg` fails in Docker with a context timeout error, increase the download timeout either via config or env:
+    - `config.yml` under `general`:
+       ```yaml
+       general:
+          ffmpegDownloadTimeout: "30m"
+       ```
+    - or with env var: `FFMPEG_DOWNLOAD_TIMEOUT=30m` when running the container.
+ - Ensure the final Docker image contains extraction utilities like `xz` and `unzip` (for `tar.xz` and `.zip` assets).
+ - Verify the container has outbound internet access and the necessary proxy env vars (`http_proxy` / `https_proxy`) if used in your infrastructure.
+ - Consider pre-baking a suitable ffmpeg binary into your image to avoid runtime updates in constrained environments.
 
 ## License
 MIT
