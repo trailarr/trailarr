@@ -12,6 +12,18 @@ func TestGetYtdlpFlagsConfigReadsFromDiskWhenConfigNil(t *testing.T) {
 	// rely on package-level TestMain temp root
 	// ensure per-test config file so background writers don't interfere
 	CreateTempConfig(t)
+	// Prevent background tasks (healthcheck) from running concurrently
+	// and potentially overwriting the config. Save/restore the tasksMeta
+	// so other tests remain unaffected. Also clear any queued tasks in
+	// the store before writing the config so that previously scheduled
+	// jobs don't run and overwrite our changes.
+	origTasksMeta := tasksMeta
+	tasksMeta = map[TaskID]TaskMeta{}
+	ctx := context.Background()
+	_ = GetStoreClient().Del(ctx, TaskQueueStoreKey)
+	_ = GetStoreClient().Del(ctx, HealthIssuesStoreKey)
+	defer func() { tasksMeta = origTasksMeta }()
+
 	// write a config file with specific ytdlpFlags. Include radarr/sonarr
 	// sections so background writers don't inject defaults that would
 	// overwrite our intended value on CI.
@@ -26,7 +38,18 @@ func TestGetYtdlpFlagsConfigReadsFromDiskWhenConfigNil(t *testing.T) {
 		t.Logf("failed to read back config %s: %v", GetConfigPath(), err)
 	}
 	Config = nil
-	cfg, err := GetYtdlpFlagsConfig()
+	// Retry to avoid transient CI races where background goroutines may
+	// overwrite the config after we write it. Try briefly until we observe
+	// the expected value or time out.
+	var cfg YtdlpFlagsConfig
+	var err error
+	for attempt := 0; attempt < 20; attempt++ {
+		cfg, err = GetYtdlpFlagsConfig()
+		if err == nil && cfg.Quiet == true {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 	if err != nil {
 		t.Fatalf("GetYtdlpFlagsConfig returned error: %v", err)
 	}
