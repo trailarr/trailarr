@@ -311,9 +311,19 @@ func updateYtdlp() error {
 		}
 	}
 
-	// Find existing yt-dlp path at our configured YtDlpPath
+	// Find existing yt-dlp path at our configured YtDlpPath.
+	// If YtDlpPath is a name (no path separators and not absolute), treat it as a PATH entry
 	path := YtDlpPath
-	if _, err := os.Stat(path); os.IsNotExist(err) {
+	resolvedPath := path
+	if !filepath.IsAbs(path) && !strings.Contains(path, string(os.PathSeparator)) {
+		if p, err := exec.LookPath(path); err == nil {
+			resolvedPath = p
+		} else {
+			// Not found in PATH; treat as non-existent so we can install into TrailarrRoot/bin
+			resolvedPath = path
+		}
+	}
+	if _, err := os.Stat(resolvedPath); os.IsNotExist(err) {
 		// Not found at configured path: ensure TrailarrRoot/bin exists then install
 		destDir := filepath.Join(TrailarrRoot, "bin")
 		if err := os.MkdirAll(destDir, 0755); err != nil {
@@ -328,10 +338,11 @@ func updateYtdlp() error {
 		return nil
 	}
 
-	// Replace the existing binary (make a backup)
-	backup := path + ".bak"
+	// Replace the existing binary (make a backup). Use resolvedPath that
+	// points to a file when dealing with PATH-resolved binaries.
+	backup := resolvedPath + ".bak"
 	_ = os.Remove(backup)
-	if err := os.Rename(path, backup); err != nil {
+	if err := os.Rename(resolvedPath, backup); err != nil {
 		// If rename fails due to permissions, fail fast
 		return fmt.Errorf("failed to backup existing yt-dlp binary: %w", err)
 	}

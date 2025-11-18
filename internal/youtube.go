@@ -37,6 +37,12 @@ func UpdateYtDlpPath() {
 	if runtime.GOOS == "windows" {
 		exe = exe + ".exe"
 	}
+	// Prefer to use yt-dlp found in PATH so we don't rely on a static binary path.
+	if p, err := exec.LookPath(exe); err == nil {
+		YtDlpPath = p
+		return
+	}
+	// Fallback to TrailarrRoot/bin/yt-dlp for in-tree installs
 	YtDlpPath = filepath.Join(TrailarrRoot, "bin", exe)
 }
 
