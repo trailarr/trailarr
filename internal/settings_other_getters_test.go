@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestGetYtdlpFlagsConfigReadsFromDiskWhenConfigNil(t *testing.T) {
@@ -81,8 +82,20 @@ func TestGetPathMappingsAndProviderUrlApiKey(t *testing.T) {
 	}
 
 	// Force reading from disk rather than in-memory cache which can be stale
-	Config = nil
-	url, apiKey, err := GetProviderUrlAndApiKey("radarr")
+	// Call repeatedly to avoid transient CI races where background goroutines
+	// may briefly overwrite the config file. Retry briefly until the expected
+	// provider values appear or we time out.
+	var url, apiKey string
+	for attempt := 0; attempt < 20; attempt++ {
+		Config = nil
+		url, apiKey, err = GetProviderUrlAndApiKey("radarr")
+		if err == nil && url == "http://radarr.local" && apiKey == "RKEY" {
+			break
+		}
+		// Sleep briefly before retrying; keep loop fairly quick to avoid
+		// slowing down tests but long enough for background writers to finish.
+		time.Sleep(10 * time.Millisecond)
+	}
 	if err != nil {
 		t.Fatalf("GetProviderUrlAndApiKey returned error: %v", err)
 	}
