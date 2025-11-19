@@ -4,11 +4,14 @@
   margin: 0;
   text-align: left;
   --status-text: #111827;
+  --status-title-color: #374151; /* main headings */
+  --status-subtext-color: #6b7280; /* secondary text / table header */
+  --status-hint-text: #374151; /* hint text */
 }
 .status-title {
   margin-top: 1rem;
   margin-bottom: 0.5rem;
-  color: #374151;
+  color: var(--status-title-color);
 }
 .status-card {
   background: var(--card-bg, #fff);
@@ -30,7 +33,7 @@
 }
 .health-table thead th {
   font-weight: 600;
-  color: #6b7280;
+  color: var(--status-subtext-color);
   border-bottom: 2px solid #e5e7eb;
 }
 .status-message {
@@ -59,7 +62,7 @@
   color: #ef4444;
 }
 .status-source {
-  color: #6b7280;
+  color: var(--status-subtext-color);
   font-size: 0.9rem;
   margin-top: 0.25rem;
 }
@@ -96,7 +99,7 @@
   background: var(--status-hint-bg);
   border: 1px solid var(--status-hint-border);
   border-radius: 6px;
-  color: #374151;
+  color: var(--status-hint-text);
 }
 .disk-table {
   width: 100%;
@@ -134,7 +137,7 @@
 }
 .about-row dt {
   font-weight: 600;
-  color: #374151;
+  color: var(--status-title-color);
   text-align: right;
   padding-right: 0.5rem;
 }
@@ -168,6 +171,9 @@
   .status-page.container {
     color: #e5e7eb;
     --status-text: #e5e7eb;
+    --status-title-color: #e5e7eb;
+    --status-subtext-color: #93c5fd;
+    --status-hint-text: #e5e7eb;
   }
   .status-card {
     background: #17171a;
@@ -209,6 +215,9 @@
 .status-dark .status-page.container {
   color: #e5e7eb;
   --status-text: #e5e7eb;
+  --status-title-color: #e5e7eb;
+  --status-subtext-color: #93c5fd;
+  --status-hint-text: #e5e7eb;
 }
 .status-dark .status-card {
   background: #17171a;

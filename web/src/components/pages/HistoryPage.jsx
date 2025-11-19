@@ -276,13 +276,13 @@ const HistoryPage = () => {
                   <td style={{ ...tdStyles, fontWeight: 500 }}>
                     {getMediaLink(item) ? (
                       <Link
-                        to={getMediaLink(item)}
-                        style={{
-                          color: "#6d28d9",
-                          textDecoration: "none",
-                          fontWeight: 100,
-                        }}
-                      >
+                          to={getMediaLink(item)}
+                          style={{
+                            color: "var(--history-table-link, #6d28d9)",
+                            textDecoration: "none",
+                            fontWeight: 500,
+                          }}
+                        >
                         {item.mediaTitle}
                       </Link>
                     ) : (
@@ -423,6 +423,10 @@ const HistoryPage = () => {
       document.documentElement.style.setProperty(
         "--history-table-date",
         isDark ? "#a1a1aa" : "#888",
+      );
+      document.documentElement.style.setProperty(
+        "--history-table-link",
+        isDark ? "#93c5fd" : "#6d28d9",
       );
       document.documentElement.style.setProperty(
         "--history-icon-color",
