@@ -127,21 +127,13 @@ jobs:
 
           # Mount the NVD data cache directory into the container at /src/dependency-check-data
           volume_opts+=( -v "${GITHUB_WORKSPACE}/dependency-check-data:/src/dependency-check-data" )
-          # Run the container but keep it around so we can capture full logs (stdout/stderr)
-          container_name="depcheck_debug_$(date +%s)"
-          echo "Creating container: $container_name"
-          # Create container (does not start it) so we can control lifecycle and capture logs
-          cid=$(docker create --name "$container_name" "${env_opts[@]}" "${volume_opts[@]}" "$dc_image" "${args[@]}")
-          echo "Created container id: $cid"
-          echo "Starting container (attached) to stream output..."
-          docker start -a "$cid" || rc=$?
-          rc=${rc:-0}
-          echo "Container exit code: $rc"
-          echo "==== container logs ===="
-          docker logs "$cid" || true
-          echo "==== end container logs ===="
-          echo "Removing container $cid"
-          docker rm "$cid" || true
+          # Enable verbose tracing and print the exact docker command for debugging
+          set -x
+          echo "Docker command:"
+          printf '%s ' docker run --rm "${env_opts[@]}" "${volume_opts[@]}" "$dc_image" "${args[@]}"
+          echo
+
+          docker run --rm "${env_opts[@]}" "${volume_opts[@]}" "$dc_image" "${args[@]}"
           ls -la dependency-check-report || true
 
       - name: Upload dependency-check report
