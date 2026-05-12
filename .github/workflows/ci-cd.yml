@@ -92,6 +92,65 @@ jobs:
         run: |
           go mod download
 
+      - name: Restore NVD cache
+        uses: actions/cache@v4
+        with:
+          path: dependency-check-data
+          key: ${{ runner.os }}-dependency-check-nvd-v1
+          restore-keys: |
+            ${{ runner.os }}-dependency-check-nvd-
+
+      - name: Run OWASP Dependency-Check (NVD)
+        env:
+          GITHUB_WORKSPACE: ${{ github.workspace }}
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        run: |
+          mkdir -p dependency-check-report
+
+          # Build base docker run options and args
+          volume_opts=( -v "${GITHUB_WORKSPACE}:/src" -v "${GITHUB_WORKSPACE}/dependency-check-report:/src/dependency-check-report" )
+          dc_image="owasp/dependency-check:latest"
+          args=( --project "trailarr" --scan /src --format ALL --out /src/dependency-check-report --failOnCVSS 7 --data /src/dependency-check-data )
+
+          # If an NVD API key is provided via secrets, export it into the container and pass to the scanner
+          if [ -n "$NVD_API_KEY" ]; then
+            echo "Using provided NVD API key from secrets"
+            env_opts=( -e NVD_API_KEY="$NVD_API_KEY" )
+            args+=( --nvdApiKey "$NVD_API_KEY" )
+          else
+            env_opts=()
+            echo "No NVD API key provided; running without key (may be rate-limited)"
+          fi
+
+          # Ensure the cache/data dir exists in workspace so it's mounted correctly
+          mkdir -p dependency-check-data
+
+          # Mount the NVD data cache directory into the container at /src/dependency-check-data
+          volume_opts+=( -v "${GITHUB_WORKSPACE}/dependency-check-data:/src/dependency-check-data" )
+          # Run the container but keep it around so we can capture full logs (stdout/stderr)
+          container_name="depcheck_debug_$(date +%s)"
+          echo "Creating container: $container_name"
+          # Create container (does not start it) so we can control lifecycle and capture logs
+          cid=$(docker create --name "$container_name" "${env_opts[@]}" "${volume_opts[@]}" "$dc_image" "${args[@]}")
+          echo "Created container id: $cid"
+          echo "Starting container (attached) to stream output..."
+          docker start -a "$cid" || rc=$?
+          rc=${rc:-0}
+          echo "Container exit code: $rc"
+          echo "==== container logs ===="
+          docker logs "$cid" || true
+          echo "==== end container logs ===="
+          echo "Removing container $cid"
+          docker rm "$cid" || true
+          ls -la dependency-check-report || true
+
+      - name: Upload dependency-check report
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-check-report
+          path: dependency-check-report/
+          if-no-files-found: ignore
+
       - name: Run Go tests
         run: |
           make test
