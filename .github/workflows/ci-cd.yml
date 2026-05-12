@@ -101,40 +101,17 @@ jobs:
             ${{ runner.os }}-dependency-check-nvd-
 
       - name: Run OWASP Dependency-Check (NVD)
+        uses: dependency-check/Dependency-Check_Action@main
+        id: depcheck
+        with:
+          project: 'trailarr'
+          path: '.'
+          format: 'ALL'
+          out: 'dependency-check-report'
+          args: >
+            --failOnCVSS 7
         env:
-          GITHUB_WORKSPACE: ${{ github.workspace }}
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
-        run: |
-          mkdir -p dependency-check-report
-
-          # Build base docker run options and args
-          volume_opts=( -v "${GITHUB_WORKSPACE}:/src" -v "${GITHUB_WORKSPACE}/dependency-check-report:/src/dependency-check-report" )
-          dc_image="owasp/dependency-check:latest"
-          args=( --project "trailarr" --scan /src --format ALL --out /src/dependency-check-report --failOnCVSS 7 --data /src/dependency-check-data )
-
-          # If an NVD API key is provided via secrets, export it into the container and pass to the scanner
-          if [ -n "$NVD_API_KEY" ]; then
-            echo "Using provided NVD API key from secrets"
-            env_opts=( -e NVD_API_KEY="$NVD_API_KEY" )
-            args+=( --nvdApiKey "$NVD_API_KEY" )
-          else
-            env_opts=()
-            echo "No NVD API key provided; running without key (may be rate-limited)"
-          fi
-
-          # Ensure the cache/data dir exists in workspace so it's mounted correctly
-          mkdir -p dependency-check-data
-
-          # Mount the NVD data cache directory into the container at /src/dependency-check-data
-          volume_opts+=( -v "${GITHUB_WORKSPACE}/dependency-check-data:/src/dependency-check-data" )
-          # Enable verbose tracing and print the exact docker command for debugging
-          set -x
-          echo "Docker command:"
-          printf '%s ' docker run --rm "${env_opts[@]}" "${volume_opts[@]}" "$dc_image" "${args[@]}"
-          echo
-
-          docker run --rm "${env_opts[@]}" "${volume_opts[@]}" "$dc_image" "${args[@]}"
-          ls -la dependency-check-report || true
 
       - name: Upload dependency-check report
         uses: actions/upload-artifact@v4
