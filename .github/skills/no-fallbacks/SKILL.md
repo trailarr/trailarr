@@ -47,6 +47,8 @@ This skill defines a global, repository-wide rule for any AI agent (Copilot, CLI
 - Agents MUST reference this skill before making changes that could introduce fallback logic.
 - When the agent proposes a change that relaxes strictness or introduces heuristics, it must include an explicit call-to-action for human approval in the PR description.
 
+
+
 ### Notes for maintainers
 
 - This is an instruction-only skill. To change the repository policy, update this file and discuss in code review.
