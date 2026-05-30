@@ -146,6 +146,15 @@ func appendUpdateWarnings(health []HealthMsg, about AboutInfo) []HealthMsg {
 		health = append(health, HealthMsg{Message: "ffmpeg is not installed", Source: "ffmpeg", Level: "error"})
 	}
 
+	// Check Trailarr itself (trailarr/trailarr) for newer releases
+	if av := strings.TrimSpace(about.Version); av != "" && av != "dev" {
+		if tag, err := fetchLatestGithubReleaseTag("trailarr/trailarr"); err == nil && tag != "" {
+			if compareVersion(tag, av) > 0 {
+				health = append(health, HealthMsg{Message: "trailarr update available", Source: "trailarr", Level: "warning"})
+			}
+		}
+	}
+
 	return health
 }
 
