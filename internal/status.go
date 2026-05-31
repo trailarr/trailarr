@@ -25,7 +25,8 @@ var latestReleaseCache = map[string]struct {
 var latestReleaseTTL = 12 * time.Hour
 
 // It caches results for `latestReleaseTTL` to avoid frequent API calls.
-func fetchLatestGithubReleaseTag(repo string) (string, error) {
+// Implemented as a variable so tests can override it.
+var fetchLatestGithubReleaseTag = func(repo string) (string, error) {
 	latestReleaseCacheMu.Lock()
 	cached, ok := latestReleaseCache[repo]
 	latestReleaseCacheMu.Unlock()
@@ -188,6 +189,7 @@ type AboutInfo struct {
 	Uptime           string `json:"uptime"`
 	YtdlpVersion     string `json:"ytdlpVersion"`
 	FfmpegVersion    string `json:"ffmpegVersion"`
+	LatestRelease    string `json:"latestRelease,omitempty"`
 }
 
 type SystemStatus struct {
@@ -232,6 +234,10 @@ func SystemStatusHandler() gin.HandlerFunc {
 			Uptime:           formatDuration(time.Since(StartTime)),
 			YtdlpVersion:     getYtdlpVersion(),
 			FfmpegVersion:    getFfmpegVersion(),
+		}
+		// Best-effort: set the latest release tag for Trailarr so the UI can show it.
+		if tag, err := fetchLatestGithubReleaseTag("trailarr/trailarr"); err == nil && tag != "" {
+			about.LatestRelease = tag
 		}
 		// Add TMDB connectivity check (error-level) and update warnings for yt-dlp/ffmpeg (best effort with caching)
 		if tmdbHM := tmdbHealthCheck(); tmdbHM != nil {
