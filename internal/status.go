@@ -38,7 +38,7 @@ var fetchLatestGithubReleaseTag = func(repo string) (string, error) {
 	client := &http.Client{Timeout: 5 * time.Second}
 	url := fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", repo)
 	req, _ := http.NewRequestWithContext(context.Background(), "GET", url, nil)
-	req.Header.Set("User-Agent", "trailarr")
+	req.Header.Set(HeaderUserAgent, defaultUserAgent)
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
@@ -69,91 +69,108 @@ func compareVersion(a, b string) int {
 	if a == b {
 		return 0
 	}
-	parse := func(s string) []int {
-		s = strings.TrimPrefix(strings.TrimSpace(s), "v")
-		parts := strings.FieldsFunc(s, func(r rune) bool { return r == '.' || r == '-' || r == '_' })
-		out := make([]int, 0, len(parts))
-		for _, p := range parts {
-			var num int
-			n, _ := fmt.Sscanf(p, "%d", &num)
-			if n == 1 {
-				out = append(out, num)
-			} else {
-				// try to extract leading digits
-				digits := ""
-				for _, ch := range p {
-					if ch >= '0' && ch <= '9' {
-						digits += string(ch)
-					} else {
-						break
-					}
-				}
-				if digits != "" {
-					fmt.Sscanf(digits, "%d", &num)
-					out = append(out, num)
-				}
-			}
-		}
-		return out
+	pa := parseVersion(a)
+	pb := parseVersion(b)
+	return compareVersionParts(pa, pb)
+}
+
+// parseVersion extracts numeric parts from a version string.
+func parseVersion(s string) []int {
+	s = strings.TrimPrefix(strings.TrimSpace(s), "v")
+	parts := strings.FieldsFunc(s, func(r rune) bool { return r == '.' || r == '-' || r == '_' })
+	out := make([]int, 0, len(parts))
+	for _, p := range parts {
+		out = append(out, extractNumber(p))
 	}
-	pa := parse(a)
-	pb := parse(b)
+	return out
+}
+
+// extractNumber extracts the leading numeric value from a string.
+func extractNumber(s string) int {
+	var num int
+	n, _ := fmt.Sscanf(s, "%d", &num)
+	if n == 1 {
+		return num
+	}
+	// try to extract leading digits
+	digits := extractLeadingDigits(s)
+	if digits != "" {
+		fmt.Sscanf(digits, "%d", &num)
+	}
+	return num
+}
+
+// extractLeadingDigits extracts the leading digit characters from a string.
+func extractLeadingDigits(s string) string {
+	for i, ch := range s {
+		if ch < '0' || ch > '9' {
+			return s[:i]
+		}
+	}
+	return s
+}
+
+// compareVersionParts compares two parsed version arrays.
+func compareVersionParts(pa, pb []int) int {
 	max := len(pa)
 	if len(pb) > max {
 		max = len(pb)
 	}
 	for i := 0; i < max; i++ {
-		var va, vb int
-		if i < len(pa) {
-			va = pa[i]
-		}
-		if i < len(pb) {
-			vb = pb[i]
-		}
-		if va > vb {
-			return 1
-		}
-		if va < vb {
-			return -1
+		va := getVersionPart(pa, i)
+		vb := getVersionPart(pb, i)
+		if cmp := compareInts(va, vb); cmp != 0 {
+			return cmp
 		}
 	}
 	return 0
+}
+
+// getVersionPart safely gets a version part, returning 0 if out of bounds.
+func getVersionPart(parts []int, idx int) int {
+	if idx < len(parts) {
+		return parts[idx]
+	}
+	return 0
+}
+
+// compareInts compares two integers.
+func compareInts(a, b int) int {
+	if a > b {
+		return 1
+	}
+	if a < b {
+		return -1
+	}
+	return 0
+}
+
+// checkVersionUpdate checks if a newer version is available and appends appropriate health message.
+func checkVersionUpdate(health []HealthMsg, version, repo, source string) []HealthMsg {
+	if version == "" || version == "Not found" {
+		return append(health, HealthMsg{Message: source + " is not installed", Source: source, Level: "error"})
+	}
+	tag, err := fetchLatestGithubReleaseTag(repo)
+	if err != nil || tag == "" {
+		return health
+	}
+	if compareVersion(tag, version) > 0 {
+		return append(health, HealthMsg{Message: source + " update available", Source: source, Level: "warning"})
+	}
+	return health
 }
 
 // appendUpdateWarnings consults the network for latest releases and appends health warnings
 // if installed versions are behind the latest release.
 func appendUpdateWarnings(health []HealthMsg, about AboutInfo) []HealthMsg {
 	// If running offline or no net available, don't block; attempt best-effort fetch.
-	// Check yt-dlp
-	if yv := strings.TrimSpace(about.YtdlpVersion); yv != "" && yv != "Not found" {
-		if tag, err := fetchLatestGithubReleaseTag("yt-dlp/yt-dlp"); err == nil && tag != "" {
-			// normalize tag and installed
-			if compareVersion(tag, yv) > 0 {
-				health = append(health, HealthMsg{Message: "yt-dlp update available", Source: "yt-dlp", Level: "warning"})
-			}
-		}
-	} else {
-		health = append(health, HealthMsg{Message: "yt-dlp is not installed", Source: "yt-dlp", Level: "error"})
-	}
-
-	// Check ffmpeg (ffmpeg/ffmpeg)
-	if fv := strings.TrimSpace(about.FfmpegVersion); fv != "" && fv != "Not found" {
-		if tag, err := fetchLatestGithubReleaseTag("ffmpeg/ffmpeg"); err == nil && tag != "" {
-			if compareVersion(tag, fv) > 0 {
-				health = append(health, HealthMsg{Message: "ffmpeg update available", Source: "ffmpeg", Level: "warning"})
-			}
-		}
-	} else {
-		health = append(health, HealthMsg{Message: "ffmpeg is not installed", Source: "ffmpeg", Level: "error"})
-	}
-
+	health = checkVersionUpdate(health, strings.TrimSpace(about.YtdlpVersion), "yt-dlp/yt-dlp", "yt-dlp")
+	health = checkVersionUpdate(health, strings.TrimSpace(about.FfmpegVersion), "ffmpeg/ffmpeg", "ffmpeg")
+	
 	// Check Trailarr itself (trailarr/trailarr) for newer releases
-	if av := strings.TrimSpace(about.Version); av != "" && av != "dev" {
-		if tag, err := fetchLatestGithubReleaseTag("trailarr/trailarr"); err == nil && tag != "" {
-			if compareVersion(tag, av) > 0 {
-				health = append(health, HealthMsg{Message: "trailarr update available", Source: "trailarr", Level: "warning"})
-			}
-		}
+	av := strings.TrimSpace(about.Version)
+	if av != "" && av != "dev" {
+		health = checkVersionUpdate(health, av, "trailarr/trailarr", "trailarr")
 	}
 
 	return health
@@ -207,60 +224,84 @@ func SystemStatusHandler() gin.HandlerFunc {
 		sonarrURL, sonarrKey, _ := GetProviderUrlAndApiKey("sonarr")
 
 		health := buildHealth(radarrURL, radarrKey, sonarrURL, sonarrKey)
-		// If no live health issues detected, consult the persisted health issues
-		// collection so the UI can surface recent problems even when the on-demand
-		// checks are not performed at the same instant.
-		if len(health) == 0 {
-			client := GetStoreClient()
-			ctx := context.Background()
-			vals, err := client.LRange(ctx, HealthIssuesStoreKey, 0, -1)
-			if err == nil && len(vals) > 0 {
-				for _, v := range vals {
-					var hm HealthMsg
-					if err := json.Unmarshal([]byte(v), &hm); err == nil {
-						health = append(health, hm)
-					}
-				}
-			}
-		}
+		health = getHealthWithPersistedIssues(health)
+		
 		pathSet := buildPathSet(radarrURL, radarrKey, sonarrURL, sonarrKey)
 		disks := buildDisks(pathSet)
 
-		about := AboutInfo{
-			Version:          getModuleVersion(),
-			AppDataDirectory: TrailarrRoot,
-			StartupDirectory: getStartupDir(),
-			Mode:             "server",
-			Uptime:           formatDuration(time.Since(StartTime)),
-			YtdlpVersion:     getYtdlpVersion(),
-			FfmpegVersion:    getFfmpegVersion(),
-		}
-		// Best-effort: set the latest release tag for Trailarr so the UI can show it.
-		if tag, err := fetchLatestGithubReleaseTag("trailarr/trailarr"); err == nil && tag != "" {
-			about.LatestRelease = tag
-		}
-		// Add TMDB connectivity check (error-level) and update warnings for yt-dlp/ffmpeg (best effort with caching)
-		if tmdbHM := tmdbHealthCheck(); tmdbHM != nil {
-			health = append(health, *tmdbHM)
-		}
-		health = appendUpdateWarnings(health, about)
+		about := buildAboutInfo()
+		
+		health = enhanceHealthInfo(health, about)
 
-		more := map[string]string{
-			"source": "https://github.com/trailarr/trailarr",
-		}
-
-		donations := map[string]string{
-			"paypal": "",
-		}
-
-		ss := SystemStatus{
-			Health:    health,
-			Disks:     disks,
-			About:     about,
-			MoreInfo:  more,
-			Donations: donations,
-		}
+		ss := buildSystemStatus(health, disks, about)
 		c.JSON(http.StatusOK, ss)
+	}
+}
+
+func getHealthWithPersistedIssues(health []HealthMsg) []HealthMsg {
+	// If no live health issues detected, consult the persisted health issues
+	// collection so the UI can surface recent problems even when the on-demand
+	// checks are not performed at the same instant.
+	if len(health) > 0 {
+		return health
+	}
+	
+	client := GetStoreClient()
+	ctx := context.Background()
+	vals, err := client.LRange(ctx, HealthIssuesStoreKey, 0, -1)
+	if err != nil || len(vals) == 0 {
+		return health
+	}
+	
+	for _, v := range vals {
+		var hm HealthMsg
+		if err := json.Unmarshal([]byte(v), &hm); err == nil {
+			health = append(health, hm)
+		}
+	}
+	return health
+}
+
+func buildAboutInfo() AboutInfo {
+	about := AboutInfo{
+		Version:          getModuleVersion(),
+		AppDataDirectory: TrailarrRoot,
+		StartupDirectory: getStartupDir(),
+		Mode:             "server",
+		Uptime:           formatDuration(time.Since(StartTime)),
+		YtdlpVersion:     getYtdlpVersion(),
+		FfmpegVersion:    getFfmpegVersion(),
+	}
+	// Best-effort: set the latest release tag for Trailarr so the UI can show it.
+	if tag, err := fetchLatestGithubReleaseTag("trailarr/trailarr"); err == nil && tag != "" {
+		about.LatestRelease = tag
+	}
+	return about
+}
+
+func enhanceHealthInfo(health []HealthMsg, about AboutInfo) []HealthMsg {
+	// Add TMDB connectivity check (error-level) and update warnings for yt-dlp/ffmpeg (best effort with caching)
+	if tmdbHM := tmdbHealthCheck(); tmdbHM != nil {
+		health = append(health, *tmdbHM)
+	}
+	return appendUpdateWarnings(health, about)
+}
+
+func buildSystemStatus(health []HealthMsg, disks []DiskInfo, about AboutInfo) SystemStatus {
+	more := map[string]string{
+		"source": "https://github.com/trailarr/trailarr",
+	}
+
+	donations := map[string]string{
+		"paypal": "",
+	}
+
+	return SystemStatus{
+		Health:    health,
+		Disks:     disks,
+		About:     about,
+		MoreInfo:  more,
+		Donations: donations,
 	}
 }
 
@@ -298,7 +339,7 @@ func tmdbHealthCheck() *HealthMsg {
 	client := &http.Client{Timeout: 5 * time.Second}
 	url := fmt.Sprintf("https://api.themoviedb.org/3/configuration?api_key=%s", key)
 	req, _ := http.NewRequestWithContext(context.Background(), "GET", url, nil)
-	req.Header.Set("User-Agent", "trailarr")
+	req.Header.Set(HeaderUserAgent, defaultUserAgent)
 	resp, err := client.Do(req)
 	if err != nil {
 		return &HealthMsg{Message: fmt.Sprintf("TMDB connectivity failed: %v", err), Source: "TMDB", Level: "error"}
@@ -388,44 +429,28 @@ func getYtdlpVersion() string {
 	return ""
 }
 
-func getFfmpegVersion() string {
-	// Prefer returning a friendly "Not found" if ffmpeg is not available.
-	// First, check configured FfmpegPath (TrailarrRoot/bin/ffmpeg) then fallback to PATH lookup.
+func isFfmpegAvailable() bool {
 	if FfmpegPath != "" {
-		if fi, err := os.Stat(FfmpegPath); err == nil && !fi.IsDir() {
-			// use configured path
-		} else {
-			// Not found at configured path; fallback to PATH
-			if _, err := exec.LookPath("ffmpeg"); err != nil {
-				return "Not found"
-			}
-		}
-	} else {
-		if _, err := exec.LookPath("ffmpeg"); err != nil {
-			return "Not found"
+		fi, err := os.Stat(FfmpegPath)
+		if err == nil && !fi.IsDir() {
+			return true
 		}
 	}
+	_, err := exec.LookPath("ffmpeg")
+	return err == nil
+}
 
-	// Use a short timeout to avoid hanging if ffmpeg misbehaves.
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	// prefer configured ffmpeg path when available
-	cmdName := "ffmpeg"
+func getFfmpegPath() string {
 	if FfmpegPath != "" {
-		if fi, err := os.Stat(FfmpegPath); err == nil && !fi.IsDir() {
-			cmdName = FfmpegPath
+		fi, err := os.Stat(FfmpegPath)
+		if err == nil && !fi.IsDir() {
+			return FfmpegPath
 		}
 	}
-	cmd := exec.CommandContext(ctx, cmdName, "-version")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return ""
-	}
-	s := strings.TrimSpace(string(out))
-	if s == "" {
-		return ""
-	}
+	return "ffmpeg"
+}
+
+func extractVersionFromFfmpegOutput(s string) string {
 	lines := strings.SplitN(s, "\n", 2)
 	first := lines[0]
 	parts := strings.Fields(first)
@@ -435,6 +460,27 @@ func getFfmpegVersion() string {
 		}
 	}
 	return first
+}
+
+func getFfmpegVersion() string {
+	if !isFfmpegAvailable() {
+		return "Not found"
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	cmdName := getFfmpegPath()
+	cmd := exec.CommandContext(ctx, cmdName, "-version")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return ""
+	}
+	s := strings.TrimSpace(string(out))
+	if s == "" {
+		return ""
+	}
+	return extractVersionFromFfmpegOutput(s)
 }
 
 func getStartupDir() string {

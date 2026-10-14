@@ -35,4 +35,6 @@ export default function HealthBadge({ count, style = {}, hasError = false, class
 HealthBadge.propTypes = {
   count: PropTypes.number.isRequired,
   style: PropTypes.object,
+  className: PropTypes.string,
+  hasError: PropTypes.bool,
 };

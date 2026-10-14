@@ -156,13 +156,7 @@ export default function StatusPage() {
         ? `/api/health/${provider}/execute`
         : "/api/health/execute";
       const res = await fetch(endpoint, { method: "POST" });
-      let json = null;
-      try {
-        json = await res.json();
-      } catch {
-        const txt = await res.text();
-        throw new Error(txt || "Failed to trigger healthcheck");
-      }
+      const json = await res.json();
       if (!json?.success) {
         const errMsg = json?.error || "Healthcheck reported failure";
         throw new Error(errMsg);
@@ -216,9 +210,9 @@ export default function StatusPage() {
         let errTxt = `Failed to update ${toolName}`;
         try {
           const j = await res.json();
-          if (j && j.error) errTxt = j.error;
+          if (j?.error) errTxt = j.error;
         } catch (e) {
-          void e; /* ignore parse error, use default error text */
+          console.debug("Failed to parse update response:", e);
         }
         throw new Error(errTxt);
       }

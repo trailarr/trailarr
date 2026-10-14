@@ -90,4 +90,5 @@ IconButton.propTypes = {
   title: PropTypes.string,
   disabled: PropTypes.bool,
   style: PropTypes.object,
+  as: PropTypes.string,
 };

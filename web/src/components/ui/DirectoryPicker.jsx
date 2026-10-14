@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import PropTypes from "prop-types";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faFolderOpen } from "@fortawesome/free-solid-svg-icons";
 
@@ -208,3 +209,11 @@ export default function DirectoryPicker({
     </div>
   );
 }
+
+DirectoryPicker.propTypes = {
+  value: PropTypes.string,
+  onChange: PropTypes.func.isRequired,
+  label: PropTypes.string,
+  disabled: PropTypes.bool,
+  name: PropTypes.string,
+};

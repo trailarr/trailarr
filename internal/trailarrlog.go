@@ -66,38 +66,42 @@ func TrailarrLog(level LogLevel, component, message string, args ...interface{})
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "[TrailarrLog] Stat error: %v\n", err)
 		} else if fi.Size() > 1024*1024 { // 1MB
-			logWriter.Close()
-			ext := filepath.Ext(logFileBase)
-			base := logFileBase[:len(logFileBase)-len(ext)]
-			// Find all existing rotated log files and renumber them
-			pattern := fmt.Sprintf("%s-*.txt", base)
-			files, _ := filepath.Glob(pattern)
-			// Sort descending by number
-			type logFile struct {
-				path string
-				num  int
-			}
-			var logFiles []logFile
-			for _, f := range files {
-				var n int
-				fmt.Sscanf(f, base+"-%d.txt", &n)
-				if n > 0 {
-					logFiles = append(logFiles, logFile{f, n})
-				}
-			}
-			// Renumber from highest to lowest
-			for i := len(logFiles) - 1; i >= 0; i-- {
-				lf := logFiles[i]
-				newName := fmt.Sprintf("%s-%d.txt", base, lf.num+1)
-				os.Rename(lf.path, newName)
-			}
-			// Rename trailarr.txt to trailarr-1.txt
-			os.Rename(logFileBase, fmt.Sprintf("%s-1.txt", base))
-			openLogFile()
-			if logWriter == nil {
-				fmt.Fprintf(os.Stderr, "[TrailarrLog] Failed to open new trailarr.txt after rotation\n")
-			}
+			rotateLogFile()
 		}
+	}
+}
+
+func rotateLogFile() {
+	logWriter.Close()
+	ext := filepath.Ext(logFileBase)
+	base := logFileBase[:len(logFileBase)-len(ext)]
+	// Find all existing rotated log files and renumber them
+	pattern := fmt.Sprintf("%s-*.txt", base)
+	files, _ := filepath.Glob(pattern)
+	// Sort descending by number
+	type logFile struct {
+		path string
+		num  int
+	}
+	var logFiles []logFile
+	for _, f := range files {
+		var n int
+		fmt.Sscanf(f, base+"-%d.txt", &n)
+		if n > 0 {
+			logFiles = append(logFiles, logFile{f, n})
+		}
+	}
+	// Renumber from highest to lowest
+	for i := len(logFiles) - 1; i >= 0; i-- {
+		lf := logFiles[i]
+		newName := fmt.Sprintf("%s-%d.txt", base, lf.num+1)
+		os.Rename(lf.path, newName)
+	}
+	// Rename trailarr.txt to trailarr-1.txt
+	os.Rename(logFileBase, fmt.Sprintf("%s-1.txt", base))
+	openLogFile()
+	if logWriter == nil {
+		fmt.Fprintf(os.Stderr, "[TrailarrLog] Failed to open new trailarr.txt after rotation\n")
 	}
 }
 

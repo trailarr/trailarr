@@ -195,27 +195,15 @@ export default function Tasks() {
       pollingInterval = setInterval(fetchStatus, 500);
       fetchQueue();
       queueInterval = setInterval(fetchQueue, 1000);
-      try {
-        if (globalThis.window !== undefined) {
-          try {
-            globalThis.__trailarr_tasks_polling?.stop?.();
-          } catch (e) {
-            void e;
-          }
-          globalThis.__trailarr_tasks_polling = {
-            stop: () => {
-              try {
-                if (pollingInterval) clearInterval(pollingInterval);
-                if (queueInterval) clearInterval(queueInterval);
-                if (ws) ws.close();
-              } catch (e) {
-                void e;
-              }
-            },
-          };
-        }
-      } catch (e) {
-        void e;
+      if (globalThis.window !== undefined) {
+        globalThis.__trailarr_tasks_polling?.stop?.();
+        globalThis.__trailarr_tasks_polling = {
+          stop: () => {
+            if (pollingInterval) clearInterval(pollingInterval);
+            if (queueInterval) clearInterval(queueInterval);
+            if (ws) ws.close();
+          },
+        };
       }
     }
     function stopPolling() {
@@ -248,7 +236,7 @@ export default function Tasks() {
           setStatus(data);
           setLoading(false);
         } catch (e) {
-          void e; /* ignore malformed ws payloads */
+          console.debug("Malformed ws payload:", e);
         }
       };
       ws.onerror = () => {
@@ -268,24 +256,20 @@ export default function Tasks() {
       activeRef.current = false;
       stopPolling();
       if (ws) ws.close();
-      try {
-        if (
-          globalThis.window !== undefined &&
-          globalThis.__trailarr_tasks_polling?.stop
-        ) {
-          try {
-            globalThis.__trailarr_tasks_polling.stop();
-          } catch (e) {
-            void e;
-          }
-          try {
-            delete globalThis.__trailarr_tasks_polling;
-          } catch (e) {
-            void e;
-          }
+      if (
+        globalThis.window !== undefined &&
+        globalThis.__trailarr_tasks_polling?.stop
+      ) {
+        try {
+          globalThis.__trailarr_tasks_polling.stop();
+        } catch (e) {
+          console.debug("Error stopping previous polling:", e);
         }
-      } catch (e) {
-        void e;
+        try {
+          delete globalThis.__trailarr_tasks_polling;
+        } catch (e) {
+          console.debug("Error deleting polling object:", e);
+        }
       }
       document.removeEventListener("visibilitychange", handleVisibility);
     };
@@ -299,7 +283,7 @@ export default function Tasks() {
       });
       fetchStatus();
     } catch (e) {
-      void e; /* ignore network errors */
+      console.debug("forceExecute network error:", e);
     }
   }
   const styles = getStyles(isDark);

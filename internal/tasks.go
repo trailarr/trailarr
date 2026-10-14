@@ -553,43 +553,62 @@ func buildBgTasks(states TaskStates) []bgTask {
 }
 
 func scheduleTask(t bgTask) {
+	initialDelay := calculateInitialDelay(t.lastExec, t.interval)
+	sleepBeforeStart(initialDelay)
+
+	ticker := time.NewTicker(t.interval)
+	defer ticker.Stop()
+
+	for {
+		waitForDependencies(t.id)
+		go runTaskAsync(TaskID(t.id), t.syncFunc)
+		<-ticker.C
+	}
+}
+
+func calculateInitialDelay(lastExec time.Time, interval time.Duration) time.Duration {
 	now := time.Now()
-	initialDelay := t.lastExec.Add(t.interval).Sub(now)
+	initialDelay := lastExec.Add(interval).Sub(now)
 	if initialDelay < 0 {
 		initialDelay = 0
 	}
+	return initialDelay
+}
+
+func sleepBeforeStart(initialDelay time.Duration) {
 	// Allow override for tests (TasksInitialDelay) when set to non-zero
 	if TasksInitialDelay > 0 {
 		time.Sleep(TasksInitialDelay)
 	} else {
 		time.Sleep(initialDelay)
 	}
+}
 
-	ticker := time.NewTicker(t.interval)
-	defer ticker.Stop()
-
-	for {
-		if t.id == "extras" {
-			// Wait until radarr and sonarr have executed at least once
-			for {
-				globalTaskStatesMu.RLock()
-				st := make(TaskStates)
-				for k, v := range GlobalTaskStates {
-					st[k] = v
-				}
-				globalTaskStatesMu.RUnlock()
-				radLast := st["radarr"].LastExecution
-				sonLast := st["sonarr"].LastExecution
-				if !radLast.IsZero() && !sonLast.IsZero() {
-					break
-				}
-				TrailarrLog(INFO, "Tasks", "Waiting for radarr/sonarr to run before extras")
-				time.Sleep(TasksDepsWaitInterval)
-			}
-		}
-		go runTaskAsync(TaskID(t.id), t.syncFunc)
-		<-ticker.C
+func waitForDependencies(taskID TaskID) {
+	if taskID != "extras" {
+		return
 	}
+	// Wait until radarr and sonarr have executed at least once
+	for {
+		if hasDependenciesRun() {
+			break
+		}
+		TrailarrLog(INFO, "Tasks", "Waiting for radarr/sonarr to run before extras")
+		time.Sleep(TasksDepsWaitInterval)
+	}
+}
+
+func hasDependenciesRun() bool {
+	globalTaskStatesMu.RLock()
+	st := make(TaskStates)
+	for k, v := range GlobalTaskStates {
+		st[k] = v
+	}
+	globalTaskStatesMu.RUnlock()
+	
+	radLast := st["radarr"].LastExecution
+	sonLast := st["sonarr"].LastExecution
+	return !radLast.IsZero() && !sonLast.IsZero()
 }
 
 func processExtras(ctx context.Context) {

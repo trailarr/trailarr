@@ -10,6 +10,13 @@ import (
 	"testing"
 )
 
+const (
+	skipXZMsg        = "xz not found; skipping test"
+	writeSrcFmt      = "write src: %v"
+	writeAssetFmt    = "write asset: %v"
+	extractFailedFmt = "extractAndInstall failed: %v"
+)
+
 func TestChooseFfmpegAssetPreference(t *testing.T) {
 	assets := []struct {
 		Name               string `json:"name"`
@@ -48,13 +55,13 @@ func TestChooseFfmpegAsset_ChooseBtbNShared(t *testing.T) {
 // is correctly detected, decompressed, and installed as an executable on disk.
 func TestExtractAndInstall_XZStream(t *testing.T) {
 	if _, err := exec.LookPath("xz"); err != nil {
-		t.Skip("xz not found; skipping test")
+		t.Skip(skipXZMsg)
 	}
 	// create a small executable file
 	td := t.TempDir()
 	src := filepath.Join(td, "ffmpeg")
 	if err := os.WriteFile(src, []byte("#!/bin/sh\necho hello\n"), 0755); err != nil {
-		t.Fatalf("write src: %v", err)
+		t.Fatalf(writeSrcFmt, err)
 	}
 	// compress using xz to create single-file compressed stream
 	var out bytes.Buffer
@@ -65,11 +72,11 @@ func TestExtractAndInstall_XZStream(t *testing.T) {
 	}
 	asset := filepath.Join(td, "ffmpeg.xz")
 	if err := os.WriteFile(asset, out.Bytes(), 0644); err != nil {
-		t.Fatalf("write asset: %v", err)
+		t.Fatalf(writeAssetFmt, err)
 	}
 	dest := filepath.Join(td, "installed")
 	if err := extractAndInstall(asset, dest); err != nil {
-		t.Fatalf("extractAndInstall failed: %v", err)
+		t.Fatalf(extractFailedFmt, err)
 	}
 	st, err := os.Stat(dest)
 	if err != nil {
@@ -88,7 +95,7 @@ func TestExtractAndInstall_TarXz(t *testing.T) {
 		t.Skip("tar not found; skipping test")
 	}
 	if _, err := exec.LookPath("xz"); err != nil {
-		t.Skip("xz not found; skipping test")
+		t.Skip(skipXZMsg)
 	}
 	td := t.TempDir()
 	srcDir := filepath.Join(td, "srcdir")
@@ -97,7 +104,7 @@ func TestExtractAndInstall_TarXz(t *testing.T) {
 	}
 	src := filepath.Join(srcDir, "ffmpeg")
 	if err := os.WriteFile(src, []byte("#!/bin/sh\necho hi\n"), 0755); err != nil {
-		t.Fatalf("write src: %v", err)
+		t.Fatalf(writeSrcFmt, err)
 	}
 	asset := filepath.Join(td, "ffmpeg.tar.xz")
 	cmd := exec.Command("tar", "-C", srcDir, "-cJf", asset, "ffmpeg")
@@ -106,7 +113,7 @@ func TestExtractAndInstall_TarXz(t *testing.T) {
 	}
 	dest := filepath.Join(td, "installed")
 	if err := extractAndInstall(asset, dest); err != nil {
-		t.Fatalf("extractAndInstall failed: %v", err)
+		t.Fatalf(extractFailedFmt, err)
 	}
 	st, err := os.Stat(dest)
 	if err != nil {

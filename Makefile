@@ -20,10 +20,10 @@ endif
 
 
 build:
-	go mod tidy
+	go mod download
 	go mod vendor
 	# Inject AppVersion into the binary via ldflags so getModuleVersion can return a real app version.
-	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -mod=vendor -ldflags "-X trailarr/internal.AppVersion=$(VERSION)" -o $(BIN_DIR)/$(APP_NAME)$(BIN_EXT) $(SRC_DIR)/main.go
+	GOOS=$(GOOS) GOARCH=$(GOARCH) GOFLAGS=-mod=vendor go build -ldflags "-X trailarr/internal.AppVersion=$(VERSION)" -o $(BIN_DIR)/$(APP_NAME)$(BIN_EXT) $(SRC_DIR)/main.go
 	ls -l $(BIN_DIR)
 
 run: build

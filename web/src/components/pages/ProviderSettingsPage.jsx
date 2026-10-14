@@ -80,37 +80,42 @@ export default function ProviderSettingsPage({ type }) {
   useEffect(() => {
     setLoading(true);
     (async () => {
-      try {
-        const res = await fetch(`/api/settings/${type}`);
-        const data = await res.json();
-        let pathMappings = Array.isArray(data.pathMappings)
-          ? data.pathMappings
-          : [];
-        const normalized = { ...data, pathMappings };
-        setSettings(normalized);
-        setOriginalSettings(normalized);
-        if (data.providerURL && data.apiKey) {
-          try {
-            const res2 = await fetch(
-              `/api/rootfolders?providerURL=${encodeURIComponent(data.providerURL)}&apiKey=${encodeURIComponent(data.apiKey)}&type=${type}`,
-            );
-            if (!res2.ok) return;
-            const folders = await res2.json();
-            if (folders && folders.length > 0) {
-              const folderPaths = folders.map((f) => f.path || f);
-              const merged = mapFoldersToPathMappings(
-                folderPaths,
-                pathMappings,
-              );
-              setSettings((s) => ({ ...s, pathMappings: merged }));
-              setOriginalSettings((s) => ({ ...s, pathMappings: merged }));
-            }
-          } catch (err) {
-            void err; /* ignore: optional provider fetch failed */
-          }
+      const res = await fetch(`/api/settings/${type}`).catch((err) => {
+        console.debug("Failed to load provider settings:", err);
+        return null;
+      });
+      if (!res || !res.ok) {
+        setLoading(false);
+        return;
+      }
+      const data = await res.json().catch((err) => {
+        console.debug("Failed to parse provider settings:", err);
+        return {};
+      });
+      let pathMappings = Array.isArray(data.pathMappings)
+        ? data.pathMappings
+        : [];
+      const normalized = { ...data, pathMappings };
+      setSettings(normalized);
+      setOriginalSettings(normalized);
+      if (data.providerURL && data.apiKey) {
+        const res2 = await fetch(
+          `/api/rootfolders?providerURL=${encodeURIComponent(data.providerURL)}&apiKey=${encodeURIComponent(data.apiKey)}&type=${type}`,
+        ).catch((err) => {
+          console.debug("Optional provider fetch failed:", err);
+          return null;
+        });
+        if (!res2 || !res2.ok) return;
+        const folders = await res2.json().catch((err) => {
+          console.debug("Failed to parse root folders:", err);
+          return null;
+        });
+        if (folders && folders.length > 0) {
+          const folderPaths = folders.map((f) => f.path || f);
+          const merged = mapFoldersToPathMappings(folderPaths, pathMappings);
+          setSettings((s) => ({ ...s, pathMappings: merged }));
+          setOriginalSettings((s) => ({ ...s, pathMappings: merged }));
         }
-      } catch (err) {
-        void err; /* ignore: failed to load provider settings */
       }
       setLoading(false);
     })();
@@ -194,7 +199,7 @@ export default function ProviderSettingsPage({ type }) {
       setSettings((s) => ({ ...s, pathMappings }));
       setOriginalSettings((s) => ({ ...s, pathMappings }));
     } catch (err) {
-      void err; /* ignore */
+      console.debug("fetchAndUpdateRootFolders failed:", err);
     }
   };
   const testConnection = async () => {
@@ -219,7 +224,7 @@ export default function ProviderSettingsPage({ type }) {
       setToastSuccess(true);
       await fetchAndUpdateRootFolders();
     } catch (err) {
-      void err;
+      console.debug("testConnection failed:", err);
       setToast("Connection failed.");
       setToastSuccess(false);
     } finally {

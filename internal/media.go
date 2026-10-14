@@ -260,44 +260,55 @@ func SyncMedia(provider, apiPath, cacheFile string, filter func(map[string]inter
 	return nil
 }
 
+// loadMediaByID loads a single media item by ID
+func loadMediaByID(cacheFile string, idInt int) ([]map[string]interface{}, error) {
+	single, err := LoadSingleMediaItem(cacheFile, idInt)
+	if err != nil {
+		return nil, err
+	}
+	if single != nil {
+		return []map[string]interface{}{single}, nil
+	}
+	return []map[string]interface{}{}, nil
+}
+
+// parseIDParam attempts to parse an ID query parameter
+func parseIDParam(idParam string) (int, error) {
+	var idInt int
+	_, err := fmt.Sscanf(idParam, "%d", &idInt)
+	if err != nil {
+		return 0, err
+	}
+	return idInt, nil
+}
+
+// getMediaItems fetches media items based on query parameters
+func getMediaItems(cacheFile string, idParam string) ([]map[string]interface{}, error) {
+	if idParam == "" {
+		// For list requests, use raw store values to avoid triggering
+		// runtime mappings and any heavy processing.
+		return LoadMediaFromStore(cacheFile)
+	}
+
+	idInt, err := parseIDParam(idParam)
+	if err != nil {
+		// Fallback: parse failed, just load full cache
+		return loadCache(cacheFile)
+	}
+
+	return loadMediaByID(cacheFile, idInt)
+}
+
 // Generic handler for listing media (movies/series)
 func GetMediaHandler(cacheFile, key string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// If id query param present, load only that item for efficiency
 		idParam := c.Query("id")
-		var items []map[string]interface{}
-		var err error
-		if idParam != "" {
-			var idInt int
-			if _, scanErr := fmt.Sscanf(idParam, "%d", &idInt); scanErr == nil {
-				if single, e := LoadSingleMediaItem(cacheFile, idInt); e == nil && single != nil {
-					items = []map[string]interface{}{single}
-				} else if e != nil {
-					respondError(c, http.StatusInternalServerError, "cache not found")
-					return
-				} else {
-					items = []map[string]interface{}{}
-				}
-			} else {
-				// Fallback: parse failed, just load full cache
-				items, err = loadCache(cacheFile)
-				if err != nil {
-					respondError(c, http.StatusInternalServerError, "cache not found")
-					return
-				}
-			}
-		} else {
-			// For list requests, use raw store values to avoid triggering
-			// runtime mappings and any heavy processing.
-			items, err = LoadMediaFromStore(cacheFile)
-			if err != nil {
-				respondError(c, http.StatusInternalServerError, "cache not found")
-				return
-			}
+		items, err := getMediaItems(cacheFile, idParam)
+		if err != nil {
+			respondError(c, http.StatusInternalServerError, "cache not found")
+			return
 		}
-		// idParam already handled, simply filter if any additional filtering + safeguard
-		filtered := items
-		respondJSON(c, http.StatusOK, gin.H{"items": filtered})
+		respondJSON(c, http.StatusOK, gin.H{"items": items})
 	}
 }
 
@@ -436,6 +447,26 @@ func handlePosterJob(job posterJob, section string) (bool, error) {
 	return false, nil
 }
 
+// buildDebugSample creates a sample of up to 5 media items for debug logging
+func buildDebugSample(items []map[string]interface{}) []string {
+	sample := make([]string, 0, 5)
+	for i, it := range items {
+		if i >= 5 {
+			break
+		}
+		idInt, ok := parseMediaID(it["id"])
+		if !ok {
+			continue
+		}
+		p := ""
+		if pp, ok := it["path"].(string); ok {
+			p = pp
+		}
+		sample = append(sample, fmt.Sprintf("%d:%s", idInt, p))
+	}
+	return sample
+}
+
 // Finds the media path for a given id in a cache file
 func FindMediaPathByID(cacheFile string, mediaId int) (string, error) {
 	// Use raw store values rather than processed/mapped cache versions.
@@ -459,21 +490,7 @@ func FindMediaPathByID(cacheFile string, mediaId int) (string, error) {
 	// Don't log the full item list to avoid noisy output; log item count
 	// and a short sample of IDs/paths to give insight into why a lookup
 	// may have failed.
-	sample := make([]string, 0, 5)
-	for i, it := range items {
-		if i >= 5 {
-			break
-		}
-		idInt, ok := parseMediaID(it["id"])
-		if !ok {
-			continue
-		}
-		p := ""
-		if pp, ok := it["path"].(string); ok {
-			p = pp
-		}
-		sample = append(sample, fmt.Sprintf("%d:%s", idInt, p))
-	}
+	sample := buildDebugSample(items)
 	TrailarrLog(DEBUG, "FindMediaPathByID", "missing path for mediaId=%d cacheFile=%s items=%d sample=%v", mediaId, cacheFile, len(items), sample)
 	return "", nil
 }
@@ -565,48 +582,55 @@ func processLoadedItems(items []map[string]interface{}, path string) []map[strin
 	if err != nil {
 		mappings = nil
 	}
-	// Debug: log incoming items and mapping/title map sizes for troubleshooting
+	logProcessingStart(path, mediaType, items, titleMap, mappings)
+	logSamplePaths(items, "before mapping")
+	updateAllItems(items, mappings, mediaType, titleMap)
+	logSamplePaths(items, "after mapping")
+	TrailarrLog(DEBUG, "processLoadedItems", "processed %d items for path=%s", len(items), path)
+	return items
+}
+
+// Helper to log initial processing state
+func logProcessingStart(path, mediaType string, items []map[string]interface{}, titleMap map[string]string, mappings map[string]interface{}) {
 	mappingsLen := 0
 	if mappings != nil {
 		mappingsLen = len(mappings)
 	}
 	TrailarrLog(DEBUG, "processLoadedItems", "path=%s mediaType=%v items=%d titleMap=%d mappings=%d", path, mediaType, len(items), len(titleMap), mappingsLen)
+}
 
-	// Log a brief sample of first few items' path before mapping for easier debugging
+// Helper to extract sample paths from items
+func extractSamplePaths(items []map[string]interface{}) []string {
 	prePaths := make([]string, 0, 5)
 	for i, it := range items {
 		if i >= 5 {
 			break
 		}
-		if p, ok := it["path"].(string); ok {
-			idInt, _ := parseMediaID(it["id"])
-			prePaths = append(prePaths, fmt.Sprintf("%d:%s", idInt, p))
+		p, ok := it["path"].(string)
+		if !ok {
+			continue
 		}
+		idInt, _ := parseMediaID(it["id"])
+		prePaths = append(prePaths, fmt.Sprintf("%d:%s", idInt, p))
 	}
-	if len(prePaths) > 0 {
-		TrailarrLog(DEBUG, "processLoadedItems", "sample paths before mapping: %v", prePaths)
+	return prePaths
+}
+
+// Helper to log sample paths before or after mapping
+func logSamplePaths(items []map[string]interface{}, stage string) {
+	paths := extractSamplePaths(items)
+	if len(paths) > 0 {
+		TrailarrLog(DEBUG, "processLoadedItems", "sample paths %s mapping: %v", stage, paths)
 	}
+}
+
+// Helper to update all items with path and title mappings
+func updateAllItems(items []map[string]interface{}, mappings map[string]interface{}, mediaType, titleMap string) {
 	for _, item := range items {
 		updateItemPath(item, mappings, mediaType)
 		updateItemTitle(item, titleMap)
 		// Do NOT attach extras from collection; extras are only in the extras collection now
 	}
-	// Show a sample of paths after mapping as well
-	postPaths := make([]string, 0, 5)
-	for i, it := range items {
-		if i >= 5 {
-			break
-		}
-		if p, ok := it["path"].(string); ok {
-			idInt, _ := parseMediaID(it["id"])
-			postPaths = append(postPaths, fmt.Sprintf("%d:%s", idInt, p))
-		}
-	}
-	if len(postPaths) > 0 {
-		TrailarrLog(DEBUG, "processLoadedItems", "sample paths after mapping: %v", postPaths)
-	}
-	TrailarrLog(DEBUG, "processLoadedItems", "processed %d items for path=%s", len(items), path)
-	return items
 }
 
 // LoadMediaFromStore loads movies or series from the persistent store.
@@ -716,6 +740,27 @@ func getTitleMap(mainCachePath, path string) map[string]string {
 	return titleMap
 }
 
+// Helper: Check if mapping is valid for the given media type
+func isValidPathMapping(oldPath, newPath string, mediaType MediaType) bool {
+	tvKeywords := []string{"/tv/", "/series/"}
+	movieKeywords := []string{"/movie/", "/movies/"}
+	lowerOld := strings.ToLower(oldPath)
+	lowerNew := strings.ToLower(newPath)
+	
+	if mediaType == MediaTypeTV {
+		if containsAny(lowerOld, tvKeywords) && containsAny(lowerNew, movieKeywords) {
+			TrailarrLog(WARN, "updateItemPath", "Skipping mapping for mediaType=tv that maps %s to movies path %s", oldPath, newPath)
+			return false
+		}
+	} else if mediaType == MediaTypeMovie {
+		if containsAny(lowerOld, movieKeywords) && containsAny(lowerNew, tvKeywords) {
+			TrailarrLog(WARN, "updateItemPath", "Skipping mapping for mediaType=movie that maps %s to tv path %s", oldPath, newPath)
+			return false
+		}
+	}
+	return true
+}
+
 // Helper: Update item path using mappings
 func updateItemPath(item map[string]interface{}, mappings [][]string, mediaType MediaType) {
 	p, ok := item["path"].(string)
@@ -725,31 +770,10 @@ func updateItemPath(item map[string]interface{}, mappings [][]string, mediaType 
 	for _, m := range mappings {
 		if strings.HasPrefix(p, m[0]) {
 			newPath := m[1] + p[len(m[0]):]
-			// Sanity check: avoid mapping a TV path to a Movies path (and vice versa)
-			tvKeywords := []string{"/tv/", "/series/"}
-			movieKeywords := []string{"/movie/", "/movies/"}
-			lowerOld := strings.ToLower(p)
-			lowerNew := strings.ToLower(newPath)
-			// If mapping would change a TV path into a Movies path, log and skip it
-			if mediaType == MediaTypeTV {
-				oldIsTV := containsAny(lowerOld, tvKeywords)
-				newIsMovies := containsAny(lowerNew, movieKeywords)
-				if oldIsTV && newIsMovies {
-					TrailarrLog(WARN, "updateItemPath", "Skipping mapping for mediaType=tv that maps %s to movies path %s", p, newPath)
-					continue
-				}
+			if isValidPathMapping(p, newPath, mediaType) {
+				item["path"] = newPath
+				break
 			}
-			// If mapping would change a Movies path into a TV path, log and skip it
-			if mediaType == MediaTypeMovie {
-				oldIsMovie := containsAny(lowerOld, movieKeywords)
-				newIsTV := containsAny(lowerNew, tvKeywords)
-				if oldIsMovie && newIsTV {
-					TrailarrLog(WARN, "updateItemPath", "Skipping mapping for mediaType=movie that maps %s to tv path %s", p, newPath)
-					continue
-				}
-			}
-			item["path"] = newPath
-			break
 		}
 	}
 }

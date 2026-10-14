@@ -258,37 +258,54 @@ func DefaultGeneralConfig() map[string]interface{} {
 	}
 }
 
+// defaultTrustedProxies returns the default trusted proxies list.
+func defaultTrustedProxies() []string {
+	return []string{"127.0.0.1"}
+}
+
+// parseTrustedProxiesFromInterfaces converts []interface{} to []string.
+func parseTrustedProxiesFromInterfaces(t []interface{}) []string {
+	var res []string
+	for _, e := range t {
+		if s, ok := e.(string); ok {
+			res = append(res, s)
+		}
+	}
+	return res
+}
+
+// extractTrustedProxies extracts trusted proxies from the general config section.
+func extractTrustedProxies(general map[string]interface{}) []string {
+	if v, ok := general["trustedProxies"]; ok {
+		switch t := v.(type) {
+		case []interface{}:
+			if res := parseTrustedProxiesFromInterfaces(t); len(res) > 0 {
+				return res
+			}
+		case []string:
+			if len(t) > 0 {
+				return t
+			}
+		}
+	}
+	return nil
+}
+
 // GetTrustedProxies returns the list of CIDRs configured for trusted proxies.
 // If not present in config it returns the default of only loopback.
 func GetTrustedProxies() ([]string, error) {
 	cfg, err := readConfigFile()
 	if err != nil {
-		// Return default if we can't read config
-		return []string{"127.0.0.1"}, nil
+		return defaultTrustedProxies(), nil
 	}
 	general, ok := cfg["general"].(map[string]interface{})
 	if !ok || general == nil {
-		return []string{"127.0.0.1"}, nil
+		return defaultTrustedProxies(), nil
 	}
-	if v, ok := general["trustedProxies"]; ok {
-		switch t := v.(type) {
-		case []interface{}:
-			var res []string
-			for _, e := range t {
-				if s, ok := e.(string); ok {
-					res = append(res, s)
-				}
-			}
-			if len(res) > 0 {
-				return res, nil
-			}
-		case []string:
-			if len(t) > 0 {
-				return t, nil
-			}
-		}
+	if res := extractTrustedProxies(general); res != nil {
+		return res, nil
 	}
-	return []string{"127.0.0.1"}, nil
+	return defaultTrustedProxies(), nil
 }
 
 // GetFfmpegDownloadTimeout returns configured timeout or default 10m
