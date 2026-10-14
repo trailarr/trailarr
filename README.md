@@ -96,6 +96,7 @@ Docker notes (ffmpeg update fails only in Docker)
     ```
   - or with env var: `FFMPEG_DOWNLOAD_TIMEOUT=30m` when running the container.
 - Ensure the final Docker image contains extraction utilities like `xz` and `unzip` (for `tar.xz` and `.zip` assets).
+- The final image installs [Deno](https://deno.com/) as the JavaScript runtime that `yt-dlp` needs for full YouTube extraction. Without it, `yt-dlp` warns "No supported JavaScript runtime could be found" and some formats are missing, which surfaces as `Requested format is not available`. Deno is on `PATH`, so `yt-dlp` detects it automatically (no `--js-runtimes` flag needed). The pinned version is set via the `DENO_VERSION` build arg in `Dockerfile`.
 - Verify the container has outbound internet access and the necessary proxy env vars (`http_proxy` / `https_proxy`) if used in your infrastructure.
 - Consider pre-baking a suitable ffmpeg binary into your image to avoid runtime updates in constrained environments.
 

@@ -605,7 +605,7 @@ func hasDependenciesRun() bool {
 		st[k] = v
 	}
 	globalTaskStatesMu.RUnlock()
-	
+
 	radLast := st["radarr"].LastExecution
 	sonLast := st["sonarr"].LastExecution
 	return !radLast.IsZero() && !sonLast.IsZero()

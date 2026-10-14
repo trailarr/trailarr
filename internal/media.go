@@ -591,7 +591,7 @@ func processLoadedItems(items []map[string]interface{}, path string) []map[strin
 }
 
 // Helper to log initial processing state
-func logProcessingStart(path, mediaType string, items []map[string]interface{}, titleMap map[string]string, mappings map[string]interface{}) {
+func logProcessingStart(path string, mediaType MediaType, items []map[string]interface{}, titleMap map[string]string, mappings [][]string) {
 	mappingsLen := 0
 	if mappings != nil {
 		mappingsLen = len(mappings)
@@ -625,7 +625,7 @@ func logSamplePaths(items []map[string]interface{}, stage string) {
 }
 
 // Helper to update all items with path and title mappings
-func updateAllItems(items []map[string]interface{}, mappings map[string]interface{}, mediaType, titleMap string) {
+func updateAllItems(items []map[string]interface{}, mappings [][]string, mediaType MediaType, titleMap map[string]string) {
 	for _, item := range items {
 		updateItemPath(item, mappings, mediaType)
 		updateItemTitle(item, titleMap)
@@ -746,7 +746,7 @@ func isValidPathMapping(oldPath, newPath string, mediaType MediaType) bool {
 	movieKeywords := []string{"/movie/", "/movies/"}
 	lowerOld := strings.ToLower(oldPath)
 	lowerNew := strings.ToLower(newPath)
-	
+
 	if mediaType == MediaTypeTV {
 		if containsAny(lowerOld, tvKeywords) && containsAny(lowerNew, movieKeywords) {
 			TrailarrLog(WARN, "updateItemPath", "Skipping mapping for mediaType=tv that maps %s to movies path %s", oldPath, newPath)

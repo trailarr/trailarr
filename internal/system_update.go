@@ -256,7 +256,7 @@ func matchesPlatformExt(name string, wantedExt string) bool {
 func isStaticOrGplBuild(name string) bool {
 	n := strings.ToLower(name)
 	linuxVariants := []string{"linux", "linux64"}
-	
+
 	if strings.Contains(n, "static") {
 		for _, variant := range linuxVariants {
 			if strings.Contains(n, variant) && strings.Contains(n, "x86") {
@@ -264,7 +264,7 @@ func isStaticOrGplBuild(name string) bool {
 			}
 		}
 	}
-	
+
 	if strings.Contains(n, "gpl") {
 		for _, variant := range linuxVariants {
 			if strings.Contains(n, variant) {
@@ -747,9 +747,14 @@ func decompressStream(tmpFile, dest string, isXZ bool) error {
 	}
 	defer func() { outTmp.Close(); _ = os.Remove(outTmp.Name()) }()
 
+	// Write decompressed bytes to outTmp and capture stderr separately. Do not
+	// use CombinedOutput here: it sets up a StdoutPipe, which fails with
+	// "exec: Stdout already set" because Stdout is assigned above.
 	decompCmd.Stdout = outTmp
-	if out, err := decompCmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("failed to decompress archive stream: %v: %s", err, string(out))
+	var stderr strings.Builder
+	decompCmd.Stderr = &stderr
+	if err := decompCmd.Run(); err != nil {
+		return fmt.Errorf("failed to decompress archive stream: %v: %s", err, stderr.String())
 	}
 	if runtime.GOOS != "windows" {
 		_ = outTmp.Chmod(0755)

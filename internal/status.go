@@ -166,7 +166,7 @@ func appendUpdateWarnings(health []HealthMsg, about AboutInfo) []HealthMsg {
 	// If running offline or no net available, don't block; attempt best-effort fetch.
 	health = checkVersionUpdate(health, strings.TrimSpace(about.YtdlpVersion), "yt-dlp/yt-dlp", "yt-dlp")
 	health = checkVersionUpdate(health, strings.TrimSpace(about.FfmpegVersion), "ffmpeg/ffmpeg", "ffmpeg")
-	
+
 	// Check Trailarr itself (trailarr/trailarr) for newer releases
 	av := strings.TrimSpace(about.Version)
 	if av != "" && av != "dev" {
@@ -225,12 +225,12 @@ func SystemStatusHandler() gin.HandlerFunc {
 
 		health := buildHealth(radarrURL, radarrKey, sonarrURL, sonarrKey)
 		health = getHealthWithPersistedIssues(health)
-		
+
 		pathSet := buildPathSet(radarrURL, radarrKey, sonarrURL, sonarrKey)
 		disks := buildDisks(pathSet)
 
 		about := buildAboutInfo()
-		
+
 		health = enhanceHealthInfo(health, about)
 
 		ss := buildSystemStatus(health, disks, about)
@@ -245,14 +245,14 @@ func getHealthWithPersistedIssues(health []HealthMsg) []HealthMsg {
 	if len(health) > 0 {
 		return health
 	}
-	
+
 	client := GetStoreClient()
 	ctx := context.Background()
 	vals, err := client.LRange(ctx, HealthIssuesStoreKey, 0, -1)
 	if err != nil || len(vals) == 0 {
 		return health
 	}
-	
+
 	for _, v := range vals {
 		var hm HealthMsg
 		if err := json.Unmarshal([]byte(v), &hm); err == nil {

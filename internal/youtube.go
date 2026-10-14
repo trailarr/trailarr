@@ -689,13 +689,17 @@ func GetDownloadStatusHandler(c *gin.Context) {
 
 func DefaultYtdlpFlagsConfig() YtdlpFlagsConfig {
 	return YtdlpFlagsConfig{
-		Quiet:            false,
-		NoProgress:       false,
-		WriteSubs:        true,
-		WriteAutoSubs:    true,
-		EmbedSubs:        true,
-		SubLangs:         "es.*",
-		RequestedFormats: "best[height<=1080]",
+		Quiet:         false,
+		NoProgress:    false,
+		WriteSubs:     true,
+		WriteAutoSubs: true,
+		EmbedSubs:     true,
+		SubLangs:      "es.*",
+		// YouTube now mostly serves separate DASH video/audio streams, so a plain
+		// `best` selector (which only matches pre-merged formats) frequently
+		// matches nothing. Prefer merging best video+audio up to 1080p, and fall
+		// back to a combined stream only when one is actually available.
+		RequestedFormats: "bv*[height<=1080]+ba/b[height<=1080]",
 		Timeout:          3.0,
 		SleepInterval:    5.0,
 		MaxDownloads:     5,
@@ -1013,10 +1017,20 @@ func (e *TooManyRequestsError) Error() string {
 	return e.Message
 }
 
+// isImpersonationErrorNative reports whether yt-dlp output indicates the
+// impersonation target could not be used (e.g. curl_cffi is not installed).
+// The match is deliberately specific: a bare "is not available" also appears in
+// unrelated errors such as "Requested format is not available", and treating
+// those as impersonation failures triggers a pointless retry and hides the real
+// cause.
 func isImpersonationErrorNative(output string) bool {
-	return strings.Contains(output, "Impersonate target") ||
-		strings.Contains(output, "is not available") ||
-		strings.Contains(output, "missing dependencies required to support this target")
+	lower := strings.ToLower(output)
+	if strings.Contains(lower, "impersonate target") ||
+		strings.Contains(lower, "missing dependencies required to support this target") {
+		return true
+	}
+	// Some yt-dlp versions word it differently but still mention impersonation.
+	return strings.Contains(lower, "impersonate") && strings.Contains(lower, "not available")
 }
 
 func buildYtDlpArgs(info *downloadInfo, youtubeId string, impersonate bool) []string {
